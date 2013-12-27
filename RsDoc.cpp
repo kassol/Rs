@@ -218,6 +218,7 @@ void CRsDoc::OnFileOpen()
 		m_recBac.Free();
 		m_recCur.Free();
 		POSITION pos = fdlg.GetStartPosition();
+
 		while (NULL != pos)
 		{
 			CString strFilePath = fdlg.GetNextPathName(pos);
@@ -275,6 +276,7 @@ void CRsDoc::OnFileOpen()
 
 		CFrameWnd* pMainFrm = (CFrameWnd*)AfxGetApp()->GetMainWnd();
 		CFrameWnd* pChildFrm = pMainFrm->GetActiveFrame();
+		
 		CRect rect;
 		pChildFrm->GetClientRect(&rect);
 

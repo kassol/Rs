@@ -398,8 +398,18 @@ void CRsDoc::FillData(RectFExt rect)
 		int nWidth = int(recResult.Width()/m_lfResolution*m_lfScale);
 		int nHeight = int(recResult.Height()/m_lfResolution*m_lfScale);
 
+
 		bottom = m_nBufHeight-top;
 		bottom2 = m_nBufHeight-top2;
+
+		if (bottom < 0)
+		{
+			bottom = 0;
+		}
+		if (bottom2 < 0)
+		{
+			bottom2 = 0;
+		}
 		
 		for (int y = 0; y < nHeight; ++y)
 		{
@@ -452,6 +462,23 @@ void CRsDoc::FillData(RectFExt rect)
 				right = left+nXCount;
 				bottom = m_nBufHeight-top;
 				top = bottom-nYCount;
+
+				if (left < 0)
+				{
+					left = 0;
+				}
+				if (right > m_nBufWidth)
+				{
+					right = m_nBufWidth;
+				}
+				if (top < 0)
+				{
+					top = 0;
+				}
+				if (bottom > m_nBufHeight)
+				{
+					bottom = m_nBufHeight;
+				}
 
 				m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
 					m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, -1, 0);

@@ -259,6 +259,15 @@ void CRsDoc::OnFileOpen()
 			}
 		}
 
+		if (m_bIsGrey)
+		{
+			m_nBandNum = 1;
+		}
+		else
+		{
+			m_nBandNum = 3;
+		}
+
 		
 		m_nCols = int((m_lfMaxx-m_lfMinx)/m_lfResolution);
 		m_nRows = int((m_lfMaxy-m_lfMiny)/m_lfResolution);
@@ -479,9 +488,20 @@ void CRsDoc::FillData(RectFExt rect)
 				{
 					bottom = m_nBufHeight;
 				}
-
-				m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-					m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, -1, 0);
+				if (m_bIsGrey)
+				{
+					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, -1, 0);
+				}
+				else
+				{
+					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, 0, 0);
+					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, 1, 1);
+					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, 2, 2);
+				}
 				m_pImage->Close();
 			}
 		}

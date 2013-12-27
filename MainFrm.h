@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "RasterPane.h"
+
 class CMainFrame : public CMDIFrameWndEx
 {
 	DECLARE_DYNAMIC(CMainFrame)
@@ -44,6 +46,8 @@ protected:  // 控件条嵌入成员
 	CMFCToolBarImages m_PanelImages;
 	CMFCRibbonStatusBar  m_wndStatusBar;
 	CMFCCaptionBar    m_wndCaptionBar;
+	CRasterPane m_wndRasterPane;
+
 
 // 生成的消息映射函数
 protected:
@@ -55,6 +59,7 @@ protected:
 	DECLARE_MESSAGE_MAP()
 
 	BOOL CreateCaptionBar();
+
 };
 
 

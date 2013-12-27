@@ -21,6 +21,8 @@
 #define new DEBUG_NEW
 #endif
 
+#define  ID_DOCKABLE_RASTER_PANE 8090
+
 // CMainFrame
 
 IMPLEMENT_DYNAMIC(CMainFrame, CMDIFrameWndEx)
@@ -87,6 +89,17 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	CDockingManager::SetDockingMode(DT_SMART);
 	// 启用 Visual Studio 2005 样式停靠窗口自动隐藏行为
 	EnableAutoHidePanes(CBRS_ALIGN_ANY);
+
+	if (!m_wndRasterPane.Create(_T("影像列表"), this, CRect(0, 0, 200, 0), FALSE,
+		ID_DOCKABLE_RASTER_PANE, WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|
+		WS_CLIPCHILDREN|CBRS_LEFT|CBRS_FLOAT_MULTI))
+	{
+		TRACE0("未能创建影像列表\n");
+		return -1;
+	}
+	m_wndRasterPane.EnableDocking(CBRS_ALIGN_ANY);
+	DockPane(&m_wndRasterPane);
+
 
 	// 创建标题栏:
 	if (!CreateCaptionBar())

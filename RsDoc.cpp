@@ -610,3 +610,6 @@ void CRsDoc::ZoomOut(CPoint &pt)
 	m_bIsReady = TRUE;
 	UpdateAllViews(NULL);
 }
+
+
+

@@ -116,6 +116,7 @@
   <ItemGroup>
     <ClInclude Include="ChildFrm.h" />
     <ClInclude Include="MainFrm.h" />
+    <ClInclude Include="RasterPane.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Rs.h" />
     <ClInclude Include="RsDoc.h" />
@@ -126,6 +127,7 @@
   <ItemGroup>
     <ClCompile Include="ChildFrm.cpp" />
     <ClCompile Include="MainFrm.cpp" />
+    <ClCompile Include="RasterPane.cpp" />
     <ClCompile Include="Rs.cpp" />
     <ClCompile Include="RsDoc.cpp" />
     <ClCompile Include="RsView.cpp" />

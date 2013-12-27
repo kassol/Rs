@@ -1,0 +1,26 @@
+# Visual Studio
+*.suo
+*.user
+*.sdf
+*.opensdf
+ipch/
+*.ipch
+[Dd]ebug/
+[Rr]elease/
+*.tlog
+*.tlh
+*.tlli
+*.obj
+*.log
+*.manifest
+*.res
+*.lastbuildstate
+*.rc
+*.idb
+*.pdb
+*.exe
+*.ilk
+*.tfw
+*.tif
+*.tlb
+

@@ -15,7 +15,6 @@ ipch/
 *.manifest
 *.res
 *.lastbuildstate
-*.rc
 *.idb
 *.pdb
 *.exe

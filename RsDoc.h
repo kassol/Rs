@@ -98,7 +98,6 @@ private:
 	
 	IImageX* m_pImage;
 	std::vector<CString> m_vecImagePath;
-	std::vector<RectFExt> m_vecImageRect;
 	double m_lfMinx;
 	double m_lfMaxx;
 	double m_lfMiny;
@@ -130,8 +129,8 @@ private:
 	void  FillData(RectFExt rect);
 	void Geo2Buf(RectFExt rect, double lfxpos, double lfypos, long &nxpos, long &nypos);
 
-protected:
-
+public:
+	std::vector<RectFExt> m_vecImageRect;
 
 public:
 	void GetBufSize(int &nBufWidth, int &nBufHeight);

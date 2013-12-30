@@ -51,6 +51,7 @@ protected:
 	int m_wide;
 	int m_height;
 	double m_lfScale;
+	BOOL m_bShowEdge;
 	
 
 private:
@@ -73,6 +74,8 @@ public:
 	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
 	afx_msg void OnDestroy();
 	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
+	afx_msg void OnShowEdge();
+	afx_msg void OnUpdateShowEdge(CCmdUI *pCmdUI);
 };
 
 #ifndef _DEBUG  // RsView.cpp 中的调试版本

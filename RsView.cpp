@@ -40,6 +40,8 @@ BEGIN_MESSAGE_MAP(CRsView, CView)
 	ON_WM_ERASEBKGND()
 	ON_WM_DESTROY()
 	ON_WM_MOUSEWHEEL()
+	ON_COMMAND(ID_SHOW_EDGE, &CRsView::OnShowEdge)
+	ON_UPDATE_COMMAND_UI(ID_SHOW_EDGE, &CRsView::OnUpdateShowEdge)
 END_MESSAGE_MAP()
 
 // CRsView 构造/析构
@@ -47,7 +49,8 @@ END_MESSAGE_MAP()
 CRsView::CRsView():m_hRC(NULL),
 	m_pDC(NULL),
 	m_pData(NULL),
-	m_lfScale(0)
+	m_lfScale(0),
+	m_bShowEdge(FALSE)
 {
 	// TODO: 在此处添加构造代码
 
@@ -344,6 +347,39 @@ void CRsView::RenderScene()
 			glDrawPixels(nBufWidth, nBufHeight, GL_LUMINANCE, GL_UNSIGNED_BYTE, m_pData);
 		}
 	}
+	if (m_bShowEdge)
+	{
+		std::vector<RectFExt>::iterator temIte = pDoc->m_vecImageRect.begin();
+		std::vector<RectFExt>::iterator IteEnd = pDoc->m_vecImageRect.end();
+		long left = 0, right = 0, top = 0, bottom = 0;
+		int nRealOriginx = 0, nRealOriginy = 0;
+		pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
+		CRect rect;
+		GetClientRect(&rect);
+		while (temIte != IteEnd)
+		{
+			pDoc->Geo2Screen(temIte->left, temIte->bottom, left, bottom);
+			pDoc->Geo2Screen(temIte->right, temIte->top, right, top);
+			right = int((right-left)/m_lfScale+1)*m_lfScale+left;
+			top = int((top-bottom)/m_lfScale+1)*m_lfScale+bottom;
+
+			left += nRealOriginx;
+			bottom += nRealOriginy;
+			right += nRealOriginx;
+			top += nRealOriginy;
+			
+			
+			glColor3f(1.0, 0, 0);
+			glBegin(GL_LINE_STRIP);
+			glVertex2i(left, top);
+			glVertex2i(left, bottom);
+			glVertex2i(right, bottom);
+			glVertex2i(right, top);
+			glVertex2i(left, top);
+			glEnd();
+			++temIte;
+		}
+	}
 }
 
 // CRsView 消息处理程序
@@ -451,4 +487,18 @@ BOOL CRsView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 		pDoc->ZoomIn(pt);
 	}
 	return CView::OnMouseWheel(nFlags, zDelta, pt);
+}
+
+
+void CRsView::OnShowEdge()
+{
+	// TODO: Add your command handler code here
+	m_bShowEdge = !m_bShowEdge;
+	Invalidate(TRUE);
+}
+
+
+void CRsView::OnUpdateShowEdge(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_bShowEdge);
 }

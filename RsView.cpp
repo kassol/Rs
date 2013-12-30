@@ -418,6 +418,7 @@ BOOL CRsView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 
 	CRect rect;
 	GetClientRect(&rect);
+	ScreenToClient(&pt);
 
 	int nRealOriginx = 0, nRealOriginy = 0;
 	pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);

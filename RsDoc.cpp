@@ -406,8 +406,8 @@ void CRsDoc::FillData(RectFExt rect)
 		Geo2Buf(rect, recResult.left, recResult.top, left, top);
 		Geo2Buf(m_recCur, recResult.left, recResult.top, left2, top2);
 
-		int nWidth = int(recResult.Width()/m_lfResolution*m_lfScale);
-		int nHeight = int(recResult.Height()/m_lfResolution*m_lfScale);
+		int nWidth = int(recResult.Width()/m_lfResolution*m_lfScale+0.99999);
+		int nHeight = int(recResult.Height()/m_lfResolution*m_lfScale+0.99999);
 
 
 		bottom = m_nBufHeight-top;
@@ -457,13 +457,13 @@ void CRsDoc::FillData(RectFExt rect)
 				int nXCount, nYCount;
 				if (m_lfScale-1 > 0.0000001)
 				{
-					nXCount = int(nSrcRight-nSrcLeft);
-					nYCount = int(nSrcBottom-nSrcTop);
+					nXCount = int(nSrcRight-nSrcLeft+0.99999);
+					nYCount = int(nSrcBottom-nSrcTop+0.99999);
 				}
 				else
 				{
-					nXCount = int((nSrcRight-nSrcLeft)*m_lfScale);
-					nYCount = int((nSrcBottom-nSrcTop)*m_lfScale);
+					nXCount = int((nSrcRight-nSrcLeft)*m_lfScale+0.99999);
+					nYCount = int((nSrcBottom-nSrcTop)*m_lfScale+0.99999);
 				}
 
 				long left = 0, right = 0, top = 0, bottom = 0;
@@ -516,7 +516,10 @@ void CRsDoc::ZoomIn(CPoint &pt)
 	double geox = 0, geoy = 0;
 	Screen2Geo(pt.x, pt.y, geox, geoy);
 	m_lfScale /= 2;
-	
+	if (m_lfScale-1.0 >0.0000001 && 2.0-m_lfScale > 0.0000001)
+	{
+		m_lfScale = 1.0;
+	}
 	long newx = 0, newy = 0;
 	Geo2Screen(geox, geoy, newx, newy);
 	m_nRealOriginx -= (newx-pt.x);
@@ -552,8 +555,16 @@ void CRsDoc::ZoomIn(CPoint &pt)
 	Screen2Geo(nClientRectRight, nClientRectBottom, right, bottom);
 
 	m_recBac = RectFExt(left, right, top, bottom);
-	m_nBufWidth = int(m_recBac.Width()/m_lfResolution*m_lfScale);
-	m_nBufHeight = int(m_recBac.Height()/m_lfResolution*m_lfScale);
+	if (m_lfScale-1.0 > 0.0000001)
+	{
+		m_nBufWidth = int(m_recBac.Width()/m_lfResolution+0.99999);
+		m_nBufHeight = int(m_recBac.Height()/m_lfResolution+0.99999);
+	}
+	else
+	{
+		m_nBufWidth = int(m_recBac.Width()/m_lfResolution*m_lfScale+0.99999);
+		m_nBufHeight = int(m_recBac.Height()/m_lfResolution*m_lfScale+0.99999);
+	}
 
 	FillData(m_recBac);
 	m_bIsReady = TRUE;
@@ -566,9 +577,13 @@ void CRsDoc::ZoomOut(CPoint &pt)
 	double geox = 0, geoy = 0;
 	Screen2Geo(pt.x, pt.y, geox, geoy);
 	m_lfScale *= 2;
-	if (m_lfScale-1.0 > 0.0000001)
+	if (m_lfScale-1.0 > 0.0000001 && 2.0-m_lfScale > 0.0000001)
 	{
 		m_lfScale = 1.0;
+	}
+	if (m_lfScale*1.7-m_nWndHeight > 0.0000001 || m_lfScale*1.7-m_nWndWidth > 0.0000001)
+	{
+		m_lfScale /= 2.0;
 	}
 	long newx = 0, newy = 0;
 	Geo2Screen(geox, geoy, newx, newy);
@@ -605,13 +620,24 @@ void CRsDoc::ZoomOut(CPoint &pt)
 	Screen2Geo(nClientRectRight, nClientRectBottom, right, bottom);
 
 	m_recBac = RectFExt(left, right, top, bottom);
-	m_nBufWidth = int(m_recBac.Width()/m_lfResolution*m_lfScale);
-	m_nBufHeight = int(m_recBac.Height()/m_lfResolution*m_lfScale);
+	if (m_lfScale-1.0 > 0.0000001)
+	{
+		m_nBufWidth = int(m_recBac.Width()/m_lfResolution+0.99999);
+		m_nBufHeight = int(m_recBac.Height()/m_lfResolution+0.99999);
+	}
+	else
+	{
+		m_nBufWidth = int(m_recBac.Width()/m_lfResolution*m_lfScale+0.99999);
+		m_nBufHeight = int(m_recBac.Height()/m_lfResolution*m_lfScale+0.99999);
+	}
 
 	FillData(m_recBac);
 	m_bIsReady = TRUE;
 	UpdateAllViews(NULL);
 }
 
-
+void CRsDoc::GetViewScale(double& lfScale)
+{
+	lfScale = m_lfScale;
+}
 

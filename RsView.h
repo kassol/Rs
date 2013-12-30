@@ -50,6 +50,7 @@ protected:
 	CDC* m_pDC;
 	int m_wide;
 	int m_height;
+	double m_lfScale;
 	
 
 private:

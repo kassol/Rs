@@ -46,7 +46,8 @@ END_MESSAGE_MAP()
 
 CRsView::CRsView():m_hRC(NULL),
 	m_pDC(NULL),
-	m_pData(NULL)
+	m_pData(NULL),
+	m_lfScale(0)
 {
 	// TODO: 在此处添加构造代码
 
@@ -237,7 +238,7 @@ void CRsView::RenderScene()
 
 	int nBufWidth = 0, nBufHeight = 0;
 	pDoc->GetBufSize(nBufWidth, nBufHeight);
-
+	pDoc->GetViewScale(m_lfScale);
 
 	if (pDoc->IsReady())
 	{
@@ -263,6 +264,14 @@ void CRsView::RenderScene()
 		else
 		{
 			glRasterPos2i(xoffset, yoffset);
+		}
+		if (m_lfScale-1 > 0.0000001)
+		{
+			glPixelZoom(m_lfScale, m_lfScale);
+		}
+		else
+		{
+			glPixelZoom(1.0f, 1.0f);
 		}
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		glPixelStorei(GL_PACK_ALIGNMENT, 1);
@@ -315,6 +324,14 @@ void CRsView::RenderScene()
 		else
 		{
 			glRasterPos2i(xoffset, yoffset);
+		}
+		if (m_lfScale-1 > 0.0000001)
+		{
+			glPixelZoom(m_lfScale, m_lfScale);
+		}
+		else
+		{
+			glPixelZoom(1.0f, 1.0f);
 		}
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		glPixelStorei(GL_PACK_ALIGNMENT, 1);

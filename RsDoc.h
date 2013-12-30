@@ -144,6 +144,7 @@ public:
 	BOOL IsReady(); 
 	void SetReady(BOOL bIsReady);
 	void GetRealOrigin(int& nRealOriginx, int& nRealOriginy);
+	void GetViewScale(double& lfScale);
 	
 
 // 生成的消息映射函数

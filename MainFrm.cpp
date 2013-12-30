@@ -22,6 +22,7 @@
 #endif
 
 #define  ID_DOCKABLE_RASTER_PANE 8090
+#define  ID_DOCKABLE_VECTOR_PANE 8091
 
 // CMainFrame
 
@@ -90,7 +91,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	// 启用 Visual Studio 2005 样式停靠窗口自动隐藏行为
 	EnableAutoHidePanes(CBRS_ALIGN_ANY);
 
-	if (!m_wndRasterPane.Create(_T("影像列表"), this, CRect(0, 0, 200, 0), TRUE,
+	if (!m_wndRasterPane.Create(_T("影像列表"), this, CRect(0, 0, 200, 0), FALSE,
 		ID_DOCKABLE_RASTER_PANE, WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|
 		WS_CLIPCHILDREN|CBRS_LEFT|CBRS_FLOAT_MULTI))
 	{
@@ -98,7 +99,19 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	}
 	m_wndRasterPane.EnableDocking(CBRS_ALIGN_ANY);
+	m_wndRasterPane.ShowWindow(SW_SHOW);
 	DockPane(&m_wndRasterPane);
+
+	if (!m_wndVectorPane.Create(_T("矢量列表"), this, CRect(0, 0, 200, 0), FALSE,
+		ID_DOCKABLE_VECTOR_PANE, WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|
+		WS_CLIPCHILDREN|CBRS_LEFT|CBRS_FLOAT_MULTI))
+	{
+		TRACE0("未能创建矢量列表\n");
+		return -1;
+	}
+	m_wndVectorPane.EnableDocking(CBRS_ALIGN_ANY);
+	m_wndVectorPane.ShowWindow(SW_SHOW);
+	DockPane(&m_wndVectorPane);
 
 
 	// 创建标题栏:

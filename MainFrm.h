@@ -15,6 +15,7 @@
 #pragma once
 
 #include "RasterPane.h"
+#include "VectorsPane.h"
 
 class CMainFrame : public CMDIFrameWndEx
 {
@@ -47,6 +48,7 @@ protected:  // 控件条嵌入成员
 	CMFCRibbonStatusBar  m_wndStatusBar;
 	CMFCCaptionBar    m_wndCaptionBar;
 	CRasterPane m_wndRasterPane;
+	CVectorsPane m_wndVectorPane;
 
 
 // 生成的消息映射函数

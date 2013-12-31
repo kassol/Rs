@@ -515,8 +515,8 @@ void CRsDoc::ZoomIn(CPoint &pt)
 	m_recCur.Free();
 	double geox = 0, geoy = 0;
 	Screen2Geo(pt.x, pt.y, geox, geoy);
-	m_lfScale /= 2;
-	if (m_lfScale-1.0 >0.0000001 /*&& 2.0-m_lfScale > 0.0000001*/)
+	m_lfScale /= 2.0;
+	if (m_lfScale-1.0 >0.0000001 && 2.0-m_lfScale > 0.0000001)
 	{
 		m_lfScale = 1.0;
 	}
@@ -576,15 +576,15 @@ void CRsDoc::ZoomOut(CPoint &pt)
 	m_recCur.Free();
 	double geox = 0, geoy = 0;
 	Screen2Geo(pt.x, pt.y, geox, geoy);
-	m_lfScale *= 2;
-	if (m_lfScale-1.0 > 0.0000001 /*&& 2.0-m_lfScale > 0.0000001*/)
+	m_lfScale *= 2.0;
+	if (m_lfScale-1.0 > 0.0000001 && 2.0-m_lfScale > 0.0000001)
 	{
 		m_lfScale = 1.0;
 	}
-	/*if (m_lfScale*1.7-m_nWndHeight > 0.0000001 || m_lfScale*1.7-m_nWndWidth > 0.0000001)
+	if (m_lfScale*1.7-m_nWndHeight > 0.0000001 || m_lfScale*1.7-m_nWndWidth > 0.0000001)
 	{
-	m_lfScale /= 2.0;
-	}*/
+		m_lfScale /= 2.0;
+	}
 	double newx = 0, newy = 0;
 	Geo2Screen(geox, geoy, newx, newy);
 	m_lfRealOriginx -= (newx-pt.x);

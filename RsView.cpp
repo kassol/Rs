@@ -254,8 +254,8 @@ void CRsView::RenderScene()
 
 		double xoff = 0, yoff = 0;
 
-		xoff = lfRealOriginx-int(lfRealOriginx);
-		yoff = lfRealOriginy-int(lfRealOriginy);
+		xoff = (lfRealOriginx-int(lfRealOriginx))*m_lfScale;
+		yoff = (lfRealOriginy-int(lfRealOriginy))*m_lfScale;
 
 		if (lfRealOriginx < 0)
 		{
@@ -267,16 +267,16 @@ void CRsView::RenderScene()
 		}
 
 		glRasterPos2i(lfRealOriginx, lfRealOriginy);
-		/*glBitmap(0, 0, 0, 0, xoff, yoff, NULL);
+		glBitmap(0, 0, 0, 0, xoff, yoff, NULL);
 
 		if (m_lfScale-1 > 0.0000001)
 		{
-		glPixelZoom(m_lfScale, m_lfScale);
+			glPixelZoom(m_lfScale, m_lfScale);
 		}
 		else
 		{
-		glPixelZoom(1.0f, 1.0f);
-		}*/
+			glPixelZoom(1.0f, 1.0f);
+		}
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		glPixelStorei(GL_PACK_ALIGNMENT, 1);
 		if (!pDoc->IsGrey())
@@ -314,8 +314,8 @@ void CRsView::RenderScene()
 
 		double xoff = 0, yoff = 0;
 
-		xoff = lfRealOriginx-int(lfRealOriginx);
-		yoff = lfRealOriginy-int(lfRealOriginy);
+		xoff = (lfRealOriginx-int(lfRealOriginx))*m_lfScale;
+		yoff = (lfRealOriginy-int(lfRealOriginy))*m_lfScale;
 
 		if (lfRealOriginx < 0)
 		{
@@ -327,16 +327,16 @@ void CRsView::RenderScene()
 		}
 
 		glRasterPos2i(lfRealOriginx, lfRealOriginy);
-		/*glBitmap(0, 0, 0, 0, xoff, yoff, NULL);
+		glBitmap(0, 0, 0, 0, xoff, yoff, NULL);
 
 		if (m_lfScale-1 > 0.0000001)
 		{
-		glPixelZoom(m_lfScale, m_lfScale);
+			glPixelZoom(m_lfScale, m_lfScale);
 		}
 		else
 		{
-		glPixelZoom(1.0f, 1.0f);
-		}*/
+			glPixelZoom(1.0f, 1.0f);
+		}
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		glPixelStorei(GL_PACK_ALIGNMENT, 1);
 		if (!pDoc->IsGrey())

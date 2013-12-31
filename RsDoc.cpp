@@ -56,8 +56,8 @@ CRsDoc::CRsDoc():m_pImage(NULL),
 	m_bIsReady(FALSE),
 	m_nWndWidth(0),
 	m_nWndHeight(0),
-	m_nRealOriginx(0),
-	m_nRealOriginy(0),
+	m_lfRealOriginx(0),
+	m_lfRealOriginy(0),
 	m_nScrollSizex(0),
 	m_nScrollSizey(0)
 {
@@ -319,8 +319,8 @@ void CRsDoc::OnFileOpen()
 
 		if (m_nBufHeight < m_nWndHeight || m_nBufWidth < m_nWndWidth)
 		{
-			m_nRealOriginx = (m_nWndWidth-m_nBufWidth)/2;
-			m_nRealOriginy = (m_nWndHeight-m_nBufHeight)/2;
+			m_lfRealOriginx = (m_nWndWidth-m_nBufWidth)/2;
+			m_lfRealOriginy = (m_nWndHeight-m_nBufHeight)/2;
 		}
 
 
@@ -370,10 +370,10 @@ void CRsDoc::SetReady(BOOL bIsReady)
 	m_bIsReady = bIsReady;
 }
 
-void CRsDoc::GetRealOrigin(int& nRealOriginx, int& nRealOriginy)
+void CRsDoc::GetRealOrigin(double& lfRealOriginx, double& lfRealOriginy)
 {
-	nRealOriginx = m_nRealOriginx;
-	nRealOriginy = m_nRealOriginy;
+	lfRealOriginx = m_lfRealOriginx;
+	lfRealOriginy = m_lfRealOriginy;
 }
 
 void CRsDoc::Screen2Geo(long nxpos, long nypos, double &lfxpos, double &lfypos)
@@ -382,10 +382,10 @@ void CRsDoc::Screen2Geo(long nxpos, long nypos, double &lfxpos, double &lfypos)
 	lfypos = m_lfMiny+(nypos/m_lfScale)*m_lfResolution;
 }
 
-void CRsDoc::Geo2Screen(double lfxpos, double lfypos, long &nxpos, long &nypos)
+void CRsDoc::Geo2Screen(double lfxpos, double lfypos, double &lfxpos2, double &lfypos2)
 {
-	nxpos = long((lfxpos-m_lfMinx)/m_lfResolution*m_lfScale);
-	nypos = long((lfypos-m_lfMiny)/m_lfResolution*m_lfScale);
+	lfxpos2 = (lfxpos-m_lfMinx)/m_lfResolution*m_lfScale;
+	lfypos2 = (lfypos-m_lfMiny)/m_lfResolution*m_lfScale;
 }
 
 void CRsDoc::Geo2Buf(RectFExt rect, double lfxpos, double lfypos, long &nxpos, long &nypos)
@@ -516,22 +516,22 @@ void CRsDoc::ZoomIn(CPoint &pt)
 	double geox = 0, geoy = 0;
 	Screen2Geo(pt.x, pt.y, geox, geoy);
 	m_lfScale /= 2;
-	if (m_lfScale-1.0 >0.0000001 && 2.0-m_lfScale > 0.0000001)
+	if (m_lfScale-1.0 >0.0000001 /*&& 2.0-m_lfScale > 0.0000001*/)
 	{
 		m_lfScale = 1.0;
 	}
-	long newx = 0, newy = 0;
+	double newx = 0, newy = 0;
 	Geo2Screen(geox, geoy, newx, newy);
-	m_nRealOriginx -= (newx-pt.x);
-	m_nRealOriginy -= (newy-pt.y);
+	m_lfRealOriginx -= (newx-pt.x);
+	m_lfRealOriginy -= (newy-pt.y);
 
 	m_nScrollSizex = int(m_nCols*m_lfScale);
 	m_nScrollSizey = int(m_nRows*m_lfScale);
 
-	int nClientRectLeft = -m_nRealOriginx;
-	int nClientRectRight = m_nWndWidth-m_nRealOriginx;
-	int nClientRectTop = m_nWndHeight-m_nRealOriginy;
-	int nClientRectBottom = -m_nRealOriginy;
+	int nClientRectLeft = int(-m_lfRealOriginx);
+	int nClientRectRight = int(m_nWndWidth-m_lfRealOriginx);
+	int nClientRectTop = int(m_nWndHeight-m_lfRealOriginy);
+	int nClientRectBottom = int(-m_lfRealOriginy);
 
 	if (nClientRectLeft < 0)
 	{
@@ -577,26 +577,26 @@ void CRsDoc::ZoomOut(CPoint &pt)
 	double geox = 0, geoy = 0;
 	Screen2Geo(pt.x, pt.y, geox, geoy);
 	m_lfScale *= 2;
-	if (m_lfScale-1.0 > 0.0000001 && 2.0-m_lfScale > 0.0000001)
+	if (m_lfScale-1.0 > 0.0000001 /*&& 2.0-m_lfScale > 0.0000001*/)
 	{
 		m_lfScale = 1.0;
 	}
-	if (m_lfScale*1.7-m_nWndHeight > 0.0000001 || m_lfScale*1.7-m_nWndWidth > 0.0000001)
+	/*if (m_lfScale*1.7-m_nWndHeight > 0.0000001 || m_lfScale*1.7-m_nWndWidth > 0.0000001)
 	{
-		m_lfScale /= 2.0;
-	}
-	long newx = 0, newy = 0;
+	m_lfScale /= 2.0;
+	}*/
+	double newx = 0, newy = 0;
 	Geo2Screen(geox, geoy, newx, newy);
-	m_nRealOriginx -= (newx-pt.x);
-	m_nRealOriginy -= (newy-pt.y);
+	m_lfRealOriginx -= (newx-pt.x);
+	m_lfRealOriginy -= (newy-pt.y);
 	
 	m_nScrollSizex = int(m_nCols*m_lfScale);
 	m_nScrollSizey = int(m_nRows*m_lfScale);
 
-	int nClientRectLeft = -m_nRealOriginx;
-	int nClientRectRight = m_nWndWidth-m_nRealOriginx;
-	int nClientRectTop = m_nWndHeight-m_nRealOriginy;
-	int nClientRectBottom = -m_nRealOriginy;
+	int nClientRectLeft = int(-m_lfRealOriginx);
+	int nClientRectRight = int(m_nWndWidth-m_lfRealOriginx);
+	int nClientRectTop = int(m_nWndHeight-m_lfRealOriginy);
+	int nClientRectBottom = int(-m_lfRealOriginy);
 
 	if (nClientRectLeft < 0)
 	{

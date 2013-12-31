@@ -249,30 +249,34 @@ void CRsView::RenderScene()
 
 		glLoadIdentity();
 
-		int nRealOriginx = 0, nRealOriginy = 0;
-		pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
+		double lfRealOriginx = 0, lfRealOriginy = 0;
+		pDoc->GetRealOrigin(lfRealOriginx, lfRealOriginy);
 
-		int xoff = nRealOriginx, yoff = nRealOriginy;
-		if (xoff < 0)
+		double xoff = 0, yoff = 0;
+
+		xoff = lfRealOriginx-int(lfRealOriginx);
+		yoff = lfRealOriginy-int(lfRealOriginy);
+
+		if (lfRealOriginx < 0)
 		{
-			xoff = 0;
+			lfRealOriginx = 0;
 		}
-		if (yoff < 0)
+		if (lfRealOriginy < 0)
 		{
-			yoff = 0;
+			lfRealOriginy = 0;
 		}
 
-		glRasterPos2i(0, 0);
-		glBitmap(0, 0, 0, 0, nRealOriginx, nRealOriginy, NULL);
+		glRasterPos2i(lfRealOriginx, lfRealOriginy);
+		/*glBitmap(0, 0, 0, 0, xoff, yoff, NULL);
 
 		if (m_lfScale-1 > 0.0000001)
 		{
-			glPixelZoom(m_lfScale, m_lfScale);
+		glPixelZoom(m_lfScale, m_lfScale);
 		}
 		else
 		{
-			glPixelZoom(1.0f, 1.0f);
-		}
+		glPixelZoom(1.0f, 1.0f);
+		}*/
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		glPixelStorei(GL_PACK_ALIGNMENT, 1);
 		if (!pDoc->IsGrey())
@@ -305,20 +309,34 @@ void CRsView::RenderScene()
 	{
 		glLoadIdentity();
 
-		int nRealOriginx = 0, nRealOriginy = 0;
-		pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
+		double lfRealOriginx = 0, lfRealOriginy = 0;
+		pDoc->GetRealOrigin(lfRealOriginx, lfRealOriginy);
 
-		glRasterPos2i(0, 0);
-		glBitmap(0, 0, 0, 0, nRealOriginx, nRealOriginy, NULL);
+		double xoff = 0, yoff = 0;
+
+		xoff = lfRealOriginx-int(lfRealOriginx);
+		yoff = lfRealOriginy-int(lfRealOriginy);
+
+		if (lfRealOriginx < 0)
+		{
+			lfRealOriginx = 0;
+		}
+		if (lfRealOriginy < 0)
+		{
+			lfRealOriginy = 0;
+		}
+
+		glRasterPos2i(lfRealOriginx, lfRealOriginy);
+		/*glBitmap(0, 0, 0, 0, xoff, yoff, NULL);
 
 		if (m_lfScale-1 > 0.0000001)
 		{
-			glPixelZoom(m_lfScale, m_lfScale);
+		glPixelZoom(m_lfScale, m_lfScale);
 		}
 		else
 		{
-			glPixelZoom(1.0f, 1.0f);
-		}
+		glPixelZoom(1.0f, 1.0f);
+		}*/
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		glPixelStorei(GL_PACK_ALIGNMENT, 1);
 		if (!pDoc->IsGrey())
@@ -334,9 +352,9 @@ void CRsView::RenderScene()
 	{
 		std::vector<RectFExt>::iterator temIte = pDoc->m_vecImageRect.begin();
 		std::vector<RectFExt>::iterator IteEnd = pDoc->m_vecImageRect.end();
-		long left = 0, right = 0, top = 0, bottom = 0;
-		int nRealOriginx = 0, nRealOriginy = 0;
-		pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
+		double left = 0, right = 0, top = 0, bottom = 0;
+		double lfRealOriginx = 0, lfRealOriginy = 0;
+		pDoc->GetRealOrigin(lfRealOriginx, lfRealOriginy);
 		CRect rect;
 		GetClientRect(&rect);
 		while (temIte != IteEnd)
@@ -346,10 +364,10 @@ void CRsView::RenderScene()
 			right = int((right-left)/m_lfScale+1)*m_lfScale+left;
 			top = int((top-bottom)/m_lfScale+1)*m_lfScale+bottom;
 
-			left += nRealOriginx;
-			bottom += nRealOriginy;
-			right += nRealOriginx;
-			top += nRealOriginy;
+			left += lfRealOriginx;
+			bottom += lfRealOriginy;
+			right += lfRealOriginx;
+			top += lfRealOriginy;
 			
 			
 			glColor3f(1.0, 0, 0);
@@ -456,11 +474,11 @@ BOOL CRsView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 	GetClientRect(&rect);
 	ScreenToClient(&pt);
 
-	int nRealOriginx = 0, nRealOriginy = 0;
-	pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
-	pt.x -= nRealOriginx;
+	double lfRealOriginx = 0, lfRealOriginy = 0;
+	pDoc->GetRealOrigin(lfRealOriginx, lfRealOriginy);
+	pt.x -= lfRealOriginx;
 	pt.y = rect.Height()-pt.y;
-	pt.y -= nRealOriginy;
+	pt.y -= lfRealOriginy;
 	if (zDelta > 0)
 	{
 		pDoc->ZoomOut(pt);

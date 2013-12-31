@@ -116,8 +116,8 @@ private:
 	int m_nScrollSizex;
 	int m_nScrollSizey;
 
-	int m_nRealOriginx;
-	int m_nRealOriginy;
+	double m_lfRealOriginx;
+	double m_lfRealOriginy;
 
 	unsigned char* m_pCurBuf;
 	unsigned char* m_pBacBuf;
@@ -136,13 +136,13 @@ public:
 	void GetBufSize(int &nBufWidth, int &nBufHeight);
 	unsigned char* GetData();
 	void Screen2Geo(long nxpos, long nypos, double &lfxpos, double &lfypos);
-	void Geo2Screen(double lfxpos, double lfypos, long &nxpos, long &nypos);
+	void Geo2Screen(double lfxpos, double lfypos, double &lfxpos2, double &lfypos2);
 	void ZoomOut(CPoint &pt);
 	void ZoomIn(CPoint &pt);
 	BOOL IsGrey();
 	BOOL IsReady(); 
 	void SetReady(BOOL bIsReady);
-	void GetRealOrigin(int& nRealOriginx, int& nRealOriginy);
+	void GetRealOrigin(double& lfRealOriginx, double& lfRealOriginy);
 	void GetViewScale(double& lfScale);
 	
 

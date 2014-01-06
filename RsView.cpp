@@ -260,7 +260,7 @@ void CRsView::RenderScene()
 		long nRealOriginx = 0, nRealOriginy = 0;
 		pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
 
-		double xoff = 0, yoff = 0;
+		long xoff = 0, yoff = 0;
 
 		if (nRealOriginx < 0)
 		{
@@ -328,7 +328,7 @@ void CRsView::RenderScene()
 		long nRealOriginx = 0, nRealOriginy = 0;
 		pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
 
-		double xoff = 0, yoff = 0;
+		long xoff = 0, yoff = 0;
 
 
 		if (nRealOriginx < 0)

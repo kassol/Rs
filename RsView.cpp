@@ -374,8 +374,8 @@ void CRsView::RenderScene()
 		{
 			pDoc->Geo2Screen(temIte->left, temIte->bottom, left, bottom);
 			pDoc->Geo2Screen(temIte->right, temIte->top, right, top);
-			right = int((right-left)/m_lfScale+1)*m_lfScale+left;
-			top = int((top-bottom)/m_lfScale+1)*m_lfScale+bottom;
+			right = int((right-left)/m_lfScale+0.99999)*m_lfScale+left;
+			top = int((top-bottom)/m_lfScale+0.99999)*m_lfScale+bottom;
 
 			left += lfRealOriginx;
 			bottom += lfRealOriginy;

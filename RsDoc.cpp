@@ -581,7 +581,7 @@ void CRsDoc::ZoomOut(CPoint &pt)
 	{
 		m_lfScale = 1.0;
 	}
-	if (m_lfScale*1.7-m_nWndHeight > 0.0000001 || m_lfScale*1.7-m_nWndWidth > 0.0000001)
+	if (m_lfScale*1.5-m_nWndHeight > 0.0000001 || m_lfScale*1.5-m_nWndWidth > 0.0000001)
 	{
 		m_lfScale /= 2.0;
 	}

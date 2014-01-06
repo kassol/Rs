@@ -254,20 +254,27 @@ void CRsView::RenderScene()
 
 		double xoff = 0, yoff = 0;
 
-		xoff = (lfRealOriginx-int(lfRealOriginx))*m_lfScale;
-		yoff = (lfRealOriginy-int(lfRealOriginy))*m_lfScale;
-
 		if (lfRealOriginx < 0)
 		{
+			if (m_lfScale-1.0 > 0.0000001)
+			{
+				xoff = int(fabs(lfRealOriginx))%int(m_lfScale);
+			}
 			lfRealOriginx = 0;
+			//xoff = (lfRealOriginx-int(lfRealOriginx))*m_lfScale;
 		}
 		if (lfRealOriginy < 0)
 		{
+			if (m_lfScale-1.0 > 0.0000001)
+			{
+				yoff = int(fabs(lfRealOriginy))%int(m_lfScale);
+			}
 			lfRealOriginy = 0;
+			//yoff = (lfRealOriginy-int(lfRealOriginy))*m_lfScale;
 		}
 
 		glRasterPos2i(lfRealOriginx, lfRealOriginy);
-		glBitmap(0, 0, 0, 0, xoff, yoff, NULL);
+		glBitmap(0, 0, 0, 0, -xoff, -yoff, NULL);
 
 		if (m_lfScale-1 > 0.0000001)
 		{
@@ -314,20 +321,26 @@ void CRsView::RenderScene()
 
 		double xoff = 0, yoff = 0;
 
-		xoff = (lfRealOriginx-int(lfRealOriginx))*m_lfScale;
-		yoff = (lfRealOriginy-int(lfRealOriginy))*m_lfScale;
 
 		if (lfRealOriginx < 0)
 		{
+			if (m_lfScale-1.0 > 0.0000001)
+			{
+				xoff = int(fabs(lfRealOriginx))%int(m_lfScale);
+			}
 			lfRealOriginx = 0;
 		}
 		if (lfRealOriginy < 0)
 		{
+			if (m_lfScale-1.0 > 0.0000001)
+			{
+				yoff = int(fabs(lfRealOriginy))%int(m_lfScale);
+			}
 			lfRealOriginy = 0;
 		}
 
 		glRasterPos2i(lfRealOriginx, lfRealOriginy);
-		glBitmap(0, 0, 0, 0, xoff, yoff, NULL);
+		glBitmap(0, 0, 0, 0, -xoff, -yoff, NULL);
 
 		if (m_lfScale-1 > 0.0000001)
 		{

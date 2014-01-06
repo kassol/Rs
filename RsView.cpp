@@ -56,7 +56,9 @@ CRsView::CRsView():m_hRC(NULL),
 	m_bShowEdge(FALSE),
 	m_bIsPress(FALSE),
 	m_nRealOrix(0),
-	m_nRealOriy(0)
+	m_nRealOriy(0),
+	m_nxoff(0),
+	m_nyoff(0)
 {
 	// TODO: 在此处添加构造代码
 
@@ -333,11 +335,11 @@ void CRsView::RenderScene()
 		{
 			if (m_lfScale-1.0 > 0.0000001)
 			{
-				xoff = abs(nRealOriginx)%int(m_lfScale);
+				xoff = abs(nRealOriginx)%int(m_lfScale)-m_nxoff;
 			}
 			else
 			{
-				xoff = m_nRealOrix-nRealOriginx;
+				xoff = -m_nxoff;
 			}
 			nRealOriginx = 0;
 		}
@@ -345,11 +347,11 @@ void CRsView::RenderScene()
 		{
 			if (m_lfScale-1.0 > 0.0000001)
 			{
-				yoff = abs(nRealOriginy)%int(m_lfScale);
+				yoff = abs(nRealOriginy)%int(m_lfScale)-m_nyoff;
 			}
 			else
 			{
-				yoff = m_nRealOriy-nRealOriginy;
+				yoff = -m_nyoff;
 			}
 			nRealOriginy = 0;
 		}
@@ -553,11 +555,14 @@ void CRsView::OnLButtonDown(UINT nFlags, CPoint point)
 
 void CRsView::OnLButtonUp(UINT nFlags, CPoint point)
 {
+	m_nxoff = 0;
+	m_nyoff = 0;
 	m_bIsPress = FALSE;
 	CRsDoc* pDoc = GetDocument();
 	ASSERT_VALID(pDoc);
 	if (!pDoc)
 		return;
+	pDoc->GetRealOrigin(m_nRealOrix, m_nRealOriy);
 	pDoc->UpdateData();
 	CView::OnLButtonUp(nFlags, point);
 }
@@ -572,8 +577,10 @@ void CRsView::OnMouseMove(UINT nFlags, CPoint point)
 		if (!pDoc)
 			return;
 		ScreenToClient(&point);
-		pDoc->SetRealOrigin(m_nRealOrix+point.x-m_ptStart.x, m_nRealOriy+m_ptStart.y-point.y);
-		//Invalidate(TRUE);
+		m_nxoff = point.x-m_ptStart.x;
+		m_nyoff = m_ptStart.y-point.y;
+		pDoc->SetRealOrigin(m_nRealOrix+m_nxoff, m_nRealOriy+m_nyoff);
+		Invalidate(TRUE);
 	}
 	
 	CView::OnMouseMove(nFlags, point);

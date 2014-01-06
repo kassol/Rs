@@ -56,6 +56,8 @@ protected:
 	CPoint m_ptStart;
 	long m_nRealOrix;
 	long m_nRealOriy;
+	long m_nxoff;
+	long m_nyoff;
 
 private:
 	unsigned char* m_pData;

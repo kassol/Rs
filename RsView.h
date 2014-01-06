@@ -52,7 +52,10 @@ protected:
 	int m_height;
 	double m_lfScale;
 	BOOL m_bShowEdge;
-	
+	BOOL m_bIsPress;
+	CPoint m_ptStart;
+	long m_nRealOrix;
+	long m_nRealOriy;
 
 private:
 	unsigned char* m_pData;
@@ -76,6 +79,9 @@ public:
 	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
 	afx_msg void OnShowEdge();
 	afx_msg void OnUpdateShowEdge(CCmdUI *pCmdUI);
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 };
 
 #ifndef _DEBUG  // RsView.cpp 中的调试版本

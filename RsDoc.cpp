@@ -376,6 +376,12 @@ void CRsDoc::GetRealOrigin(long& nRealOriginx, long& nRealOriginy)
 	nRealOriginy = m_nRealOriginy;
 }
 
+void CRsDoc::SetRealOrigin(long nRealOriginx, long nRealOriginy)
+{
+	m_nRealOriginx = nRealOriginx;
+	m_nRealOriginy = nRealOriginy;
+}
+
 void CRsDoc::Screen2Geo(long nxpos, long nypos, double &lfxpos, double &lfypos)
 {
 	lfxpos = m_lfMinx+(nxpos/m_lfScale)*m_lfResolution;
@@ -639,5 +645,54 @@ void CRsDoc::ZoomOut(CPoint &pt)
 void CRsDoc::GetViewScale(double& lfScale)
 {
 	lfScale = m_lfScale;
+}
+
+void CRsDoc::UpdateData()
+{
+	m_recCur.Free();
+	m_nScrollSizex = int(m_nCols*m_lfScale);
+	m_nScrollSizey = int(m_nRows*m_lfScale);
+
+	int nClientRectLeft = int(-m_nRealOriginx);
+	int nClientRectRight = int(m_nWndWidth-m_nRealOriginx);
+	int nClientRectTop = int(m_nWndHeight-m_nRealOriginy);
+	int nClientRectBottom = int(-m_nRealOriginy);
+
+	if (nClientRectLeft < 0)
+	{
+		nClientRectLeft = 0;
+	}
+	if (nClientRectRight > m_nScrollSizex)
+	{
+		nClientRectRight = m_nScrollSizex;
+	}
+	if (nClientRectTop > m_nScrollSizey)
+	{
+		nClientRectTop = m_nScrollSizey;
+	}
+	if (nClientRectBottom < 0)
+	{
+		nClientRectBottom = 0;
+	}
+	double left = 0, right = 0, top = 0, bottom = 0;
+
+	Screen2Geo(nClientRectLeft, nClientRectTop, left, top);
+	Screen2Geo(nClientRectRight, nClientRectBottom, right, bottom);
+
+	m_recBac = RectFExt(left, right, top, bottom);
+	if (m_lfScale-1.0 > 0.0000001)
+	{
+		m_nBufWidth = int(m_recBac.Width()/m_lfResolution+0.99999);
+		m_nBufHeight = int(m_recBac.Height()/m_lfResolution+0.99999);
+	}
+	else
+	{
+		m_nBufWidth = int(m_recBac.Width()/m_lfResolution*m_lfScale+0.99999);
+		m_nBufHeight = int(m_recBac.Height()/m_lfResolution*m_lfScale+0.99999);
+	}
+
+	FillData(m_recBac);
+	m_bIsReady = TRUE;
+	UpdateAllViews(NULL);
 }
 

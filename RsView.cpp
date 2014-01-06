@@ -42,6 +42,9 @@ BEGIN_MESSAGE_MAP(CRsView, CView)
 	ON_WM_MOUSEWHEEL()
 	ON_COMMAND(ID_SHOW_EDGE, &CRsView::OnShowEdge)
 	ON_UPDATE_COMMAND_UI(ID_SHOW_EDGE, &CRsView::OnUpdateShowEdge)
+	ON_WM_LBUTTONDOWN()
+	ON_WM_LBUTTONUP()
+	ON_WM_MOUSEMOVE()
 END_MESSAGE_MAP()
 
 // CRsView 构造/析构
@@ -50,7 +53,10 @@ CRsView::CRsView():m_hRC(NULL),
 	m_pDC(NULL),
 	m_pData(NULL),
 	m_lfScale(0),
-	m_bShowEdge(FALSE)
+	m_bShowEdge(FALSE),
+	m_bIsPress(FALSE),
+	m_nRealOrix(0),
+	m_nRealOriy(0)
 {
 	// TODO: 在此处添加构造代码
 
@@ -329,6 +335,10 @@ void CRsView::RenderScene()
 			{
 				xoff = abs(nRealOriginx)%int(m_lfScale);
 			}
+			else
+			{
+				xoff = m_nRealOrix-nRealOriginx;
+			}
 			nRealOriginx = 0;
 		}
 		if (nRealOriginy < 0)
@@ -336,6 +346,10 @@ void CRsView::RenderScene()
 			if (m_lfScale-1.0 > 0.0000001)
 			{
 				yoff = abs(nRealOriginy)%int(m_lfScale);
+			}
+			else
+			{
+				yoff = m_nRealOriy-nRealOriginy;
 			}
 			nRealOriginy = 0;
 		}
@@ -518,4 +532,49 @@ void CRsView::OnShowEdge()
 void CRsView::OnUpdateShowEdge(CCmdUI *pCmdUI)
 {
 	pCmdUI->SetCheck(m_bShowEdge);
+}
+
+
+void CRsView::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	CRsDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+
+	m_bIsPress = TRUE;
+	ScreenToClient(&point);
+	m_ptStart = point;
+	pDoc->GetRealOrigin(m_nRealOrix, m_nRealOriy);
+	CView::OnLButtonDown(nFlags, point);
+}
+
+
+void CRsView::OnLButtonUp(UINT nFlags, CPoint point)
+{
+	m_bIsPress = FALSE;
+	CRsDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+	pDoc->UpdateData();
+	CView::OnLButtonUp(nFlags, point);
+}
+
+
+void CRsView::OnMouseMove(UINT nFlags, CPoint point)
+{
+	if (m_bIsPress)
+	{
+		CRsDoc* pDoc = GetDocument();
+		ASSERT_VALID(pDoc);
+		if (!pDoc)
+			return;
+		ScreenToClient(&point);
+		pDoc->SetRealOrigin(m_nRealOrix+point.x-m_ptStart.x, m_nRealOriy+m_ptStart.y-point.y);
+		//Invalidate(TRUE);
+	}
+	
+	CView::OnMouseMove(nFlags, point);
 }

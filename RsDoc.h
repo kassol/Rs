@@ -143,7 +143,9 @@ public:
 	BOOL IsReady(); 
 	void SetReady(BOOL bIsReady);
 	void GetRealOrigin(long& nRealOriginx, long& nRealOriginy);
+	void SetRealOrigin(long nRealOriginx, long nRealOriginy);
 	void GetViewScale(double& lfScale);
+	void UpdateData();
 	
 
 // 生成的消息映射函数

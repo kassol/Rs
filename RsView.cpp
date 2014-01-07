@@ -335,11 +335,11 @@ void CRsView::RenderScene()
 		{
 			if (m_lfScale-1.0 > 0.0000001)
 			{
-				xoff = abs(nRealOriginx)%int(m_lfScale)-m_nxoff;
+				xoff = nRealOriginx%int(m_lfScale)-nRealOriginx;
 			}
 			else
 			{
-				xoff = -m_nxoff;
+				xoff = -nRealOriginx;
 			}
 			nRealOriginx = 0;
 		}
@@ -347,11 +347,11 @@ void CRsView::RenderScene()
 		{
 			if (m_lfScale-1.0 > 0.0000001)
 			{
-				yoff = abs(nRealOriginy)%int(m_lfScale)-m_nyoff;
+				yoff = nRealOriginy%int(m_lfScale)-nRealOriginy;
 			}
 			else
 			{
-				yoff = -m_nyoff;
+				yoff = -nRealOriginy;
 			}
 			nRealOriginy = 0;
 		}
@@ -546,7 +546,7 @@ void CRsView::OnLButtonDown(UINT nFlags, CPoint point)
 
 
 	m_bIsPress = TRUE;
-	ScreenToClient(&point);
+	//ScreenToClient(&point);
 	m_ptStart = point;
 	pDoc->GetRealOrigin(m_nRealOrix, m_nRealOriy);
 	CView::OnLButtonDown(nFlags, point);
@@ -576,7 +576,7 @@ void CRsView::OnMouseMove(UINT nFlags, CPoint point)
 		ASSERT_VALID(pDoc);
 		if (!pDoc)
 			return;
-		ScreenToClient(&point);
+		//ScreenToClient(&point);
 		m_nxoff = point.x-m_ptStart.x;
 		m_nyoff = m_ptStart.y-point.y;
 		pDoc->SetRealOrigin(m_nRealOrix+m_nxoff, m_nRealOriy+m_nyoff);

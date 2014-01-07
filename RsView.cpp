@@ -251,169 +251,249 @@ void CRsView::RenderScene()
 	pDoc->GetBufSize(nBufWidth, nBufHeight);
 	pDoc->GetViewScale(m_lfScale);
 
+	CRect rect;
+	GetClientRect(&rect);
+	int nTexWidth = 0, nTexHeight = 0;
+	nTexHeight = nBufHeight;
+	nTexWidth = nBufWidth;
+
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glShadeModel(GL_FLAT);
 	if (pDoc->IsReady())
 	{
+		if (g_tex != 0)
+		{
+			glDeleteTextures(1, &g_tex);
+		}
 		unsigned char* pData = pDoc->GetData();
 
-		glLoadIdentity();
-
-		long nRealOriginx = 0, nRealOriginy = 0;
-		pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
-
-		long xoff = 0, yoff = 0;
-
-		if (nRealOriginx < 0)
-		{
-			if (m_lfScale-1.0 > 0.0000001)
-			{
-				xoff = abs(nRealOriginx)%int(m_lfScale);
-			}
-			nRealOriginx = 0;
-			//xoff = (lfRealOriginx-int(lfRealOriginx))*m_lfScale;
-		}
-		if (nRealOriginy < 0)
-		{
-			if (m_lfScale-1.0 > 0.0000001)
-			{
-				yoff = abs(nRealOriginy)%int(m_lfScale);
-			}
-			nRealOriginy = 0;
-			//yoff = (lfRealOriginy-int(lfRealOriginy))*m_lfScale;
-		}
-
-		if (m_lfScale-1 > 0.0000001)
-		{
-			glPixelZoom(m_lfScale, m_lfScale);
-		}
-		else
-		{
-			glPixelZoom(1.0f, 1.0f);
-		}
-
-		glRasterPos2i(nRealOriginx, nRealOriginy);
-		glBitmap(0, 0, 0, 0, -xoff, -yoff, NULL);
+		pDoc->GetRealOrigin(m_nRealOrix, m_nRealOriy);
 
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-		glPixelStorei(GL_PACK_ALIGNMENT, 1);
-		if (!pDoc->IsGrey())
+		glGenTextures(1, &g_tex);
+		glBindTexture(GL_TEXTURE_2D, g_tex);
+		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+		
+		if (pDoc->IsGrey())
 		{
-			glDrawPixels(nBufWidth, nBufHeight, GL_RGB, GL_UNSIGNED_BYTE, pData);
-			if (m_pData != NULL)
-			{
-				delete []m_pData;
-			}
-			m_pData = new unsigned char[nBufWidth*nBufHeight*3];
-			memcpy(m_pData, pData, nBufWidth*nBufHeight*3);
-			/*memset(m_pData, 0, nBufWidth*nBufHeight*3);
-			glReadPixels(0, 0, nBufWidth, nBufHeight, GL_RGB, GL_UNSIGNED_BYTE, m_pData);*/
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, nTexWidth, nTexHeight, 0, 
+				GL_LUMINANCE, GL_UNSIGNED_BYTE, pData);
 		}
 		else
 		{
-			glDrawPixels(nBufWidth, nBufHeight, GL_LUMINANCE, GL_UNSIGNED_BYTE, pData);
-			if (m_pData != NULL)
-			{
-				delete []m_pData;
-			}
-			m_pData = new unsigned char[nBufWidth*nBufHeight];
-			memcpy(m_pData, pData, nBufWidth*nBufHeight);
-			/*memset(m_pData, 0, nBufWidth*nBufHeight);
-			glReadPixels(0, 0, nBufWidth, nBufHeight, GL_LUMINANCE, GL_UNSIGNED_BYTE, m_pData);*/
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, nTexWidth, nTexHeight, 0,
+				GL_RGB, GL_UNSIGNED_BYTE, pData);
 		}
 		pDoc->SetReady(FALSE);
 	}
-	else
+
+	glLoadIdentity();
+	long nRealOriginx = 0, nRealOriginy = 0;
+	pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
+
+	long left = 0, right = 0, top = 0, bottom = 0;
+
+	if (nRealOriginx != m_nRealOrix)
 	{
-		glLoadIdentity();
-
-		long nRealOriginx = 0, nRealOriginy = 0;
-		pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
-
-		long xoff = 0, yoff = 0;
-
-
-		if (nRealOriginx < 0)
+		if (m_nRealOrix>=0 && nRealOriginx>=0)
 		{
-			if (m_lfScale-1.0 > 0.0000001)
+			left = nRealOriginx;
+			if (m_lfScale -1.0 > 0.0000001)
 			{
-				xoff = nRealOriginx%int(m_lfScale)-nRealOriginx;
+				right = left+nBufWidth/**m_lfScale*/;
 			}
 			else
 			{
-				xoff = -nRealOriginx;
+				right = left+nBufWidth;
 			}
-			nRealOriginx = 0;
 		}
-		if (nRealOriginy < 0)
+		else if (m_nRealOrix<=0 && nRealOriginx<=0)
 		{
+			left = nRealOriginx-m_nRealOrix;
 			if (m_lfScale-1.0 > 0.0000001)
 			{
-				yoff = nRealOriginy%int(m_lfScale)-nRealOriginy;
+				right = left+nBufWidth/**m_lfScale*/;
 			}
 			else
 			{
-				yoff = -nRealOriginy;
+				right = left+nBufWidth;
 			}
-			nRealOriginy = 0;
 		}
-
-		if (m_lfScale-1 > 0.0000001)
+		else if (m_nRealOrix<=0 && nRealOriginx>=0)
 		{
-			glPixelZoom(m_lfScale, m_lfScale);
+			left = nRealOriginx-m_nRealOrix;
+			if (m_lfScale -1.0 > 0.0000001)
+			{
+				right = left+nBufWidth/**m_lfScale*/;
+			}
+			else
+			{
+				right = left+nBufWidth;
+			}
 		}
-		else
+		else if (m_nRealOrix >= 0 && nRealOriginx <= 0)
 		{
-			glPixelZoom(1.0f, 1.0f);
-		}
-
-		glRasterPos2i(nRealOriginx, nRealOriginy);
-		glBitmap(0, 0, 0, 0, -xoff, -yoff, NULL);
-
-		
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-		glPixelStorei(GL_PACK_ALIGNMENT, 1);
-		if (!pDoc->IsGrey())
-		{
-			glDrawPixels(nBufWidth, nBufHeight, GL_RGB, GL_UNSIGNED_BYTE, m_pData);
-		}
-		else
-		{
-			glDrawPixels(nBufWidth, nBufHeight, GL_LUMINANCE, GL_UNSIGNED_BYTE, m_pData);
+			left = nRealOriginx;
+			if (m_lfScale -1.0 > 0.0000001)
+			{
+				right = left+nBufWidth/**m_lfScale*/;
+			}
+			else
+			{
+				right = left+nBufWidth;
+			}
 		}
 	}
+	else
+	{
+		left = nRealOriginx>0 ? nRealOriginx : (m_lfScale-1.0 > 0.0000001 ? -(abs(nRealOriginx)%int(m_lfScale)) : 0);
+		if (m_lfScale -1.0 > 0.0000001)
+		{
+			right = left+nBufWidth/**m_lfScale*/;
+		}
+		else
+		{
+			right = left+nBufWidth;
+		}
+	}
+
+	if (nRealOriginy != m_nRealOriy)
+	{
+		if (m_nRealOriy>=0 && nRealOriginy>=0)
+		{
+			bottom = nRealOriginy;
+			if (m_lfScale -1.0 > 0.0000001)
+			{
+				top = bottom+nBufHeight/**m_lfScale*/;
+			}
+			else
+			{
+				top = bottom+nBufHeight;
+			}
+		}
+		else if (m_nRealOriy<=0 && nRealOriginy<=0)
+		{
+			bottom = nRealOriginy-m_nRealOriy;
+			if (m_lfScale -1.0 > 0.0000001)
+			{
+				top = bottom+nBufHeight/**m_lfScale*/;
+			}
+			else
+			{
+				top = bottom+nBufHeight;
+			}
+		}
+		else if (m_nRealOriy<=0 && nRealOriginy>=0)
+		{
+			bottom = nRealOriginy-m_nRealOriy;
+			if (m_lfScale -1.0 > 0.0000001)
+			{
+				top = bottom+nBufHeight/**m_lfScale*/;
+			}
+			else
+			{
+				top = bottom+nBufHeight;
+			}
+		}
+		else if (m_nRealOriy >= 0 && nRealOriginy <= 0)
+		{
+			bottom = nRealOriginy;
+			if (m_lfScale -1.0 > 0.0000001)
+			{
+				top = bottom+nBufHeight/**m_lfScale*/;
+			}
+			else
+			{
+				top = bottom+nBufHeight;
+			}
+		}
+	}
+	else
+	{
+		bottom = nRealOriginy>0 ? nRealOriginy : (m_lfScale-1.0 > 0.0000001 ? -(abs(nRealOriginy)%int(m_lfScale)) : 0);
+		if (m_lfScale -1.0 > 0.0000001)
+		{
+			top = bottom+nBufHeight/**m_lfScale*/;
+		}
+		else
+		{
+			top = bottom+nBufHeight;
+		}
+	}
+	
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, g_tex);
+	glLoadIdentity();
+	if (m_lfScale-1 > 0.0000001)
+	{
+		glScaled(m_lfScale, m_lfScale, 1.0);
+		glBegin(GL_QUADS);
+		glTexCoord2f(0.0, 0.0);glVertex2f(left, bottom);
+		glTexCoord2f(0.0, 1.0);glVertex2f(left, top);
+		glTexCoord2f(1.0, 1.0);glVertex2f(right, top);
+		glTexCoord2f(1.0, 0.0);glVertex2f(right, bottom);
+		/*glTexCoord2f(0.0, 0.0);glVertex2f(0, 0);
+		glTexCoord2f(0.0, 1.0);glVertex2f(0, top-bottom);
+		glTexCoord2f(1.0, 1.0);glVertex2f(right-left, top-bottom);
+		glTexCoord2f(1.0, 0.0);glVertex2f(right-left, 0);*/
+		glEnd();
+		/*glPushMatrix();
+		glTranslatef(left, bottom, 0);
+		glPopMatrix();*/
+	}
+	else
+	{
+		glScaled(1.0, 1.0, 1.0);
+		glBegin(GL_QUADS);
+		glTexCoord2f(0.0, 0.0);glVertex2f(left, bottom);
+		glTexCoord2f(0.0, 1.0);glVertex2f(left, top);
+		glTexCoord2f(1.0, 1.0);glVertex2f(right, top);
+		glTexCoord2f(1.0, 0.0);glVertex2f(right, bottom);
+		glEnd();
+	}
+	glDisable(GL_TEXTURE_2D);
+
 	if (m_bShowEdge)
 	{
 		std::vector<RectFExt>::iterator temIte = pDoc->m_vecImageRect.begin();
 		std::vector<RectFExt>::iterator IteEnd = pDoc->m_vecImageRect.end();
-		long left = 0, right = 0, top = 0, bottom = 0;
+		long edgeleft = 0, edgeright = 0, edgetop = 0, edgebottom = 0;
 		long nRealOriginx = 0, nRealOriginy = 0;
 		pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
 		CRect rect;
 		GetClientRect(&rect);
 		while (temIte != IteEnd)
 		{
-			pDoc->Geo2Screen(temIte->left, temIte->bottom, left, bottom);
-			pDoc->Geo2Screen(temIte->right, temIte->top, right, top);
-			right = int((right-left)/m_lfScale+0.99999)*m_lfScale+left;
-			top = int((top-bottom)/m_lfScale+0.99999)*m_lfScale+bottom;
+			pDoc->Geo2Screen(temIte->left, temIte->bottom, edgeleft, edgebottom);
+			pDoc->Geo2Screen(temIte->right, temIte->top, edgeright, edgetop);
+			
+			edgeright = int((edgeright-edgeleft)/m_lfScale+0.99999)*m_lfScale+edgeleft;
+			edgetop = int((edgetop-edgebottom)/m_lfScale+0.99999)*m_lfScale+edgebottom;
 
-			left += nRealOriginx;
-			bottom += nRealOriginy;
-			right += nRealOriginx;
-			top += nRealOriginy;
+			edgeleft += nRealOriginx;
+			edgebottom += nRealOriginy;
+			edgeright += nRealOriginx;
+			edgetop += nRealOriginy;
 			
 			
 			glColor3f(1.0, 0, 0);
 			glBegin(GL_LINE_STRIP);
-			glVertex2i(left, top);
-			glVertex2i(left, bottom);
-			glVertex2i(right, bottom);
-			glVertex2i(right, top);
-			glVertex2i(left, top);
+			glVertex2i(edgeleft, edgetop);
+			glVertex2i(edgeleft, edgebottom);
+			glVertex2i(edgeright, edgebottom);
+			glVertex2i(edgeright, edgetop);
+			glVertex2i(edgeleft, edgetop);
 			glEnd();
+			glColor3f(1.0, 1.0, 1.0);
 			++temIte;
 		}
 	}
 }
+
 
 // CRsView 消息处理程序
 
@@ -546,7 +626,7 @@ void CRsView::OnLButtonDown(UINT nFlags, CPoint point)
 
 
 	m_bIsPress = TRUE;
-	//ScreenToClient(&point);
+	ScreenToClient(&point);
 	m_ptStart = point;
 	pDoc->GetRealOrigin(m_nRealOrix, m_nRealOriy);
 	CView::OnLButtonDown(nFlags, point);
@@ -576,9 +656,17 @@ void CRsView::OnMouseMove(UINT nFlags, CPoint point)
 		ASSERT_VALID(pDoc);
 		if (!pDoc)
 			return;
-		//ScreenToClient(&point);
-		m_nxoff = point.x-m_ptStart.x;
-		m_nyoff = m_ptStart.y-point.y;
+		ScreenToClient(&point);
+		if (m_lfScale-1.0 > 0.0000001)
+		{
+			m_nxoff = (point.x-m_ptStart.x)/int(m_lfScale);
+			m_nyoff = (m_ptStart.y-point.y)/int(m_lfScale);
+		}
+		else
+		{
+			m_nxoff = point.x-m_ptStart.x;
+			m_nyoff = m_ptStart.y-point.y;
+		}
 		pDoc->SetRealOrigin(m_nRealOrix+m_nxoff, m_nRealOriy+m_nyoff);
 		Invalidate(TRUE);
 	}

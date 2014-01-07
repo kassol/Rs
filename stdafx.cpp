@@ -15,4 +15,4 @@
 
 #include "stdafx.h"
 
-
+GLuint g_tex = 0;

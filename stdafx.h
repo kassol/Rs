@@ -53,6 +53,10 @@
 
 #include <vector>
 
+#include "glut.h"
+
+extern GLuint g_tex;
+
 
 #ifdef _UNICODE
 #if defined _M_IX86

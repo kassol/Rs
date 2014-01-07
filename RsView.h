@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include "glut.h"
-
 
 class CRsView : public CView
 {

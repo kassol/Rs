@@ -302,7 +302,7 @@ void CRsView::RenderScene()
 			left = nRealOriginx;
 			if (m_lfScale -1.0 > 0.0000001)
 			{
-				right = left+nBufWidth/**m_lfScale*/;
+				right = left+nBufWidth;
 			}
 			else
 			{
@@ -314,7 +314,7 @@ void CRsView::RenderScene()
 			left = nRealOriginx-m_nRealOrix;
 			if (m_lfScale-1.0 > 0.0000001)
 			{
-				right = left+nBufWidth/**m_lfScale*/;
+				right = left+nBufWidth;
 			}
 			else
 			{
@@ -326,7 +326,7 @@ void CRsView::RenderScene()
 			left = nRealOriginx-m_nRealOrix;
 			if (m_lfScale -1.0 > 0.0000001)
 			{
-				right = left+nBufWidth/**m_lfScale*/;
+				right = left+nBufWidth;
 			}
 			else
 			{
@@ -338,7 +338,7 @@ void CRsView::RenderScene()
 			left = nRealOriginx;
 			if (m_lfScale -1.0 > 0.0000001)
 			{
-				right = left+nBufWidth/**m_lfScale*/;
+				right = left+nBufWidth;
 			}
 			else
 			{
@@ -351,7 +351,7 @@ void CRsView::RenderScene()
 		left = nRealOriginx>0 ? nRealOriginx : (m_lfScale-1.0 > 0.0000001 ? -(abs(nRealOriginx)%int(m_lfScale)) : 0);
 		if (m_lfScale -1.0 > 0.0000001)
 		{
-			right = left+nBufWidth/**m_lfScale*/;
+			right = left+nBufWidth;
 		}
 		else
 		{
@@ -366,7 +366,7 @@ void CRsView::RenderScene()
 			bottom = nRealOriginy;
 			if (m_lfScale -1.0 > 0.0000001)
 			{
-				top = bottom+nBufHeight/**m_lfScale*/;
+				top = bottom+nBufHeight;
 			}
 			else
 			{
@@ -378,7 +378,7 @@ void CRsView::RenderScene()
 			bottom = nRealOriginy-m_nRealOriy;
 			if (m_lfScale -1.0 > 0.0000001)
 			{
-				top = bottom+nBufHeight/**m_lfScale*/;
+				top = bottom+nBufHeight;
 			}
 			else
 			{
@@ -390,7 +390,7 @@ void CRsView::RenderScene()
 			bottom = nRealOriginy-m_nRealOriy;
 			if (m_lfScale -1.0 > 0.0000001)
 			{
-				top = bottom+nBufHeight/**m_lfScale*/;
+				top = bottom+nBufHeight;
 			}
 			else
 			{
@@ -402,7 +402,7 @@ void CRsView::RenderScene()
 			bottom = nRealOriginy;
 			if (m_lfScale -1.0 > 0.0000001)
 			{
-				top = bottom+nBufHeight/**m_lfScale*/;
+				top = bottom+nBufHeight;
 			}
 			else
 			{
@@ -415,7 +415,7 @@ void CRsView::RenderScene()
 		bottom = nRealOriginy>0 ? nRealOriginy : (m_lfScale-1.0 > 0.0000001 ? -(abs(nRealOriginy)%int(m_lfScale)) : 0);
 		if (m_lfScale -1.0 > 0.0000001)
 		{
-			top = bottom+nBufHeight/**m_lfScale*/;
+			top = bottom+nBufHeight;
 		}
 		else
 		{
@@ -428,9 +428,26 @@ void CRsView::RenderScene()
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, g_tex);
 	glLoadIdentity();
+	glColor3f(1.0, 1.0, 1.0);
 	if (m_lfScale-1 > 0.0000001)
 	{
-		glScaled(m_lfScale, m_lfScale, 1.0);
+		//glScaled(m_lfScale, m_lfScale, 1.0);
+		if (nBufWidth*m_lfScale < rect.Width())
+		{
+			right = left+nBufWidth*m_lfScale;
+		}
+		else
+		{
+			right = left+rect.Width()+m_lfScale;
+		}
+		if (nBufHeight*m_lfScale < rect.Height())
+		{
+			top = bottom+nBufHeight*m_lfScale;
+		}
+		else
+		{
+			top = bottom+rect.Height()+m_lfScale;
+		}
 		glBegin(GL_QUADS);
 		glTexCoord2f(0.0, 0.0);glVertex2f(left, bottom);
 		glTexCoord2f(0.0, 1.0);glVertex2f(left, top);
@@ -479,16 +496,28 @@ void CRsView::RenderScene()
 			edgeright += nRealOriginx;
 			edgetop += nRealOriginy;
 			
-			
 			glColor3f(1.0, 0, 0);
+			/*glBegin(GL_QUADS);
+			glVertex2f(0, 0);
+			glVertex2f(0, top-bottom);
+			glVertex2f(right-left, top-bottom);
+			glVertex2f(right-left, 0);
+			glEnd();*/
+			glPushMatrix();
+			glTranslatef(edgeleft, edgebottom, 0);
 			glBegin(GL_LINE_STRIP);
-			glVertex2i(edgeleft, edgetop);
+			/*glVertex2i(edgeleft, edgetop);
 			glVertex2i(edgeleft, edgebottom);
 			glVertex2i(edgeright, edgebottom);
 			glVertex2i(edgeright, edgetop);
-			glVertex2i(edgeleft, edgetop);
+			glVertex2i(edgeleft, edgetop);*/
+			glVertex2i(0, edgetop-edgebottom);
+			glVertex2i(0, 0);
+			glVertex2i(edgeright-edgeleft, 0);
+			glVertex2i(edgeright-edgeleft, edgetop-edgebottom);
+			glVertex2i(0, edgetop-edgebottom);
 			glEnd();
-			glColor3f(1.0, 1.0, 1.0);
+			glPopMatrix();
 			++temIte;
 		}
 	}
@@ -659,8 +688,8 @@ void CRsView::OnMouseMove(UINT nFlags, CPoint point)
 		ScreenToClient(&point);
 		if (m_lfScale-1.0 > 0.0000001)
 		{
-			m_nxoff = (point.x-m_ptStart.x)/int(m_lfScale);
-			m_nyoff = (m_ptStart.y-point.y)/int(m_lfScale);
+			m_nxoff = (point.x-m_ptStart.x)/*/int(m_lfScale)*/;
+			m_nyoff = (m_ptStart.y-point.y)/*/int(m_lfScale)*/;
 		}
 		else
 		{

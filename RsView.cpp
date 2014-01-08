@@ -571,6 +571,11 @@ void CRsView::OnDestroy()
 		wglDeleteContext(m_hRC);
 	}
 
+	if (g_tex != 0)
+	{
+		glDeleteTextures(1, &g_tex);
+	}
+
 	if(m_pDC)
 	{
 		delete m_pDC;

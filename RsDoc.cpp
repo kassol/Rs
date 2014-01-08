@@ -20,6 +20,7 @@
 #endif
 
 #include "RsDoc.h"
+#include "BandFormatDlg.h"
 
 #include <propkey.h>
 
@@ -33,6 +34,7 @@ IMPLEMENT_DYNCREATE(CRsDoc, CDocument)
 
 BEGIN_MESSAGE_MAP(CRsDoc, CDocument)
 	ON_COMMAND(ID_FILE_OPEN, &CRsDoc::OnFileOpen)
+	ON_COMMAND(ID_BANDCOMB, &CRsDoc::OnBandcomb)
 END_MESSAGE_MAP()
 
 
@@ -59,7 +61,10 @@ CRsDoc::CRsDoc():m_pImage(NULL),
 	m_nRealOriginx(0),
 	m_nRealOriginy(0),
 	m_nScrollSizex(0),
-	m_nScrollSizey(0)
+	m_nScrollSizey(0),
+	m_nRed(0),
+	m_nGreen(1),
+	m_nBlue(2)
 {
 	// TODO: 在此添加一次性构造代码
 	HRESULT hr = CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&m_pImage);
@@ -512,11 +517,11 @@ void CRsDoc::FillData(RectFExt rect)
 				else
 				{
 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, 0, 0);
+						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nRed, 0);
 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, 1, 1);
+						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nGreen, 1);
 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, 2, 2);
+						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nBlue, 2);
 				}
 				m_pImage->Close();
 			}
@@ -704,3 +709,19 @@ void CRsDoc::UpdateData()
 	UpdateAllViews(NULL);
 }
 
+
+
+void CRsDoc::OnBandcomb()
+{
+	CBandFormatDlg dlg(m_nBandNum);
+	if (IDOK == dlg.DoModal())
+	{
+		m_nRed = dlg.m_nRed;
+		m_nGreen = dlg.m_nGreen;
+		m_nBlue = dlg.m_nBlue;
+		m_recCur.Free();
+		FillData(m_recBac);
+		m_bIsReady = TRUE;
+		UpdateAllViews(NULL);
+	}
+}

@@ -114,6 +114,7 @@
     <None Include="res\writesmall.bmp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BandFormatDlg.h" />
     <ClInclude Include="ChildFrm.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="RasterPane.h" />
@@ -126,6 +127,7 @@
     <ClInclude Include="VectorsPane.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BandFormatDlg.cpp" />
     <ClCompile Include="ChildFrm.cpp" />
     <ClCompile Include="MainFrm.cpp" />
     <ClCompile Include="RasterPane.cpp" />

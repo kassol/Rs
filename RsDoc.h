@@ -123,6 +123,9 @@ private:
 	unsigned char* m_pBacBuf;
 	RectFExt m_recBac;
 	RectFExt m_recCur;
+	int m_nRed;
+	int m_nGreen;
+	int m_nBlue;
 
 	BOOL m_bIsReady;
 
@@ -158,4 +161,5 @@ protected:
 #endif // SHARED_HANDLERS
 public:
 	afx_msg void OnFileOpen();
+	afx_msg void OnBandcomb();
 };

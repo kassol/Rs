@@ -127,6 +127,8 @@ private:
 	int m_nGreen;
 	int m_nBlue;
 
+	int m_nRealBandNum;
+
 	BOOL m_bIsReady;
 
 	void  FillData(RectFExt rect);

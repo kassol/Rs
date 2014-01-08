@@ -64,7 +64,8 @@ CRsDoc::CRsDoc():m_pImage(NULL),
 	m_nScrollSizey(0),
 	m_nRed(0),
 	m_nGreen(1),
-	m_nBlue(2)
+	m_nBlue(2),
+	m_nRealBandNum(0)
 {
 	// TODO: 在此添加一次性构造代码
 	HRESULT hr = CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&m_pImage);
@@ -233,6 +234,7 @@ void CRsDoc::OnFileOpen()
 			m_pImage->GetCols(&nCols);
 			m_pImage->GetRows(&nRows);
 			m_pImage->GetBandNum(&m_nBandNum);
+			m_nRealBandNum = m_nBandNum;
 			double lfXOrigin, lfYOrigin, lfResolution;
 			m_pImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfResolution);
 			m_pImage->Close();
@@ -713,7 +715,7 @@ void CRsDoc::UpdateData()
 
 void CRsDoc::OnBandcomb()
 {
-	CBandFormatDlg dlg(m_nBandNum);
+	CBandFormatDlg dlg(m_nRealBandNum);
 	if (IDOK == dlg.DoModal())
 	{
 		m_nRed = dlg.m_nRed;

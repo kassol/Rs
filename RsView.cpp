@@ -431,7 +431,6 @@ void CRsView::RenderScene()
 	glColor3f(1.0, 1.0, 1.0);
 	if (m_lfScale-1 > 0.0000001)
 	{
-		//glScaled(m_lfScale, m_lfScale, 1.0);
 		if (nBufWidth*m_lfScale < rect.Width())
 		{
 			right = left+nBufWidth*m_lfScale;
@@ -453,18 +452,10 @@ void CRsView::RenderScene()
 		glTexCoord2f(0.0, 1.0);glVertex2f(left, top);
 		glTexCoord2f(1.0, 1.0);glVertex2f(right, top);
 		glTexCoord2f(1.0, 0.0);glVertex2f(right, bottom);
-		/*glTexCoord2f(0.0, 0.0);glVertex2f(0, 0);
-		glTexCoord2f(0.0, 1.0);glVertex2f(0, top-bottom);
-		glTexCoord2f(1.0, 1.0);glVertex2f(right-left, top-bottom);
-		glTexCoord2f(1.0, 0.0);glVertex2f(right-left, 0);*/
 		glEnd();
-		/*glPushMatrix();
-		glTranslatef(left, bottom, 0);
-		glPopMatrix();*/
 	}
 	else
 	{
-		glScaled(1.0, 1.0, 1.0);
 		glBegin(GL_QUADS);
 		glTexCoord2f(0.0, 0.0);glVertex2f(left, bottom);
 		glTexCoord2f(0.0, 1.0);glVertex2f(left, top);
@@ -497,20 +488,9 @@ void CRsView::RenderScene()
 			edgetop += nRealOriginy;
 			
 			glColor3f(1.0, 0, 0);
-			/*glBegin(GL_QUADS);
-			glVertex2f(0, 0);
-			glVertex2f(0, top-bottom);
-			glVertex2f(right-left, top-bottom);
-			glVertex2f(right-left, 0);
-			glEnd();*/
 			glPushMatrix();
 			glTranslatef(edgeleft, edgebottom, 0);
 			glBegin(GL_LINE_STRIP);
-			/*glVertex2i(edgeleft, edgetop);
-			glVertex2i(edgeleft, edgebottom);
-			glVertex2i(edgeright, edgebottom);
-			glVertex2i(edgeright, edgetop);
-			glVertex2i(edgeleft, edgetop);*/
 			glVertex2i(0, edgetop-edgebottom);
 			glVertex2i(0, 0);
 			glVertex2i(edgeright-edgeleft, 0);

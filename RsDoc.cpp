@@ -396,8 +396,16 @@ void CRsDoc::Geo2Screen(double lfxpos, double lfypos, long &nxpos, long &nypos)
 
 void CRsDoc::Geo2Buf(RectFExt rect, double lfxpos, double lfypos, long &nxpos, long &nypos)
 {
-	nxpos = long((lfxpos-rect.left)/m_lfResolution*m_lfScale);
-	nypos = long((rect.top-lfypos)/m_lfResolution*m_lfScale);
+	if (m_lfScale-1 > 0.0000001)
+	{
+		nxpos = long((lfxpos-rect.left)/m_lfResolution);
+		nypos = long((rect.top-lfypos)/m_lfResolution);
+	}
+	else
+	{
+		nxpos = long((lfxpos-rect.left)/m_lfResolution*m_lfScale);
+		nypos = long((rect.top-lfypos)/m_lfResolution*m_lfScale);
+	}
 }
 
 void CRsDoc::FillData(RectFExt rect)

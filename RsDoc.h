@@ -131,6 +131,8 @@ private:
 
 	BOOL m_bIsReady;
 
+	int* m_pRasterState;
+
 	void  FillData(RectFExt rect);
 	void Geo2Buf(RectFExt rect, double lfxpos, double lfypos, long &nxpos, long &nypos);
 
@@ -151,7 +153,10 @@ public:
 	void SetRealOrigin(long nRealOriginx, long nRealOriginy);
 	void GetViewScale(double& lfScale);
 	void UpdateData();
-	
+	void UpdateList();
+	void SetState(int nIndex, BOOL bState);
+	void UpdateState();
+	int* GetRasterState();
 
 // 生成的消息映射函数
 protected:

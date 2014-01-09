@@ -475,8 +475,16 @@ void CRsView::RenderScene()
 		pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
 		CRect rect;
 		GetClientRect(&rect);
+		int* pState = pDoc->GetRasterState();
+		int i = 0;
 		while (temIte != IteEnd)
 		{
+			if (pState[i] == 0)
+			{
+				++i;
+				++temIte;
+				continue;
+			}
 			pDoc->Geo2Screen(temIte->left, temIte->bottom, edgeleft, edgebottom);
 			pDoc->Geo2Screen(temIte->right, temIte->top, edgeright, edgetop);
 			
@@ -499,6 +507,7 @@ void CRsView::RenderScene()
 			glVertex2i(0, edgetop-edgebottom);
 			glEnd();
 			glPopMatrix();
+			++i;
 			++temIte;
 		}
 	}

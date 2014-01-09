@@ -8,6 +8,10 @@
 
 // CVectorsPane
 
+
+
+CListCtrl CVectorsPane::m_ctrlVectorList;
+
 IMPLEMENT_DYNAMIC(CVectorsPane, CDockablePane)
 
 CVectorsPane::CVectorsPane()
@@ -60,4 +64,9 @@ void CVectorsPane::OnSize(UINT nType, int cx, int cy)
 		GetClientRect(rectClient);
 		m_ctrlVectorList.SetWindowPos(NULL, rectClient.left, rectClient.top, rectClient.Width(), rectClient.Height(), SWP_NOACTIVATE | SWP_NOZORDER);
 	}
+}
+
+CListCtrl& CVectorsPane::GetListCtrl()
+{
+	return m_ctrlVectorList;
 }

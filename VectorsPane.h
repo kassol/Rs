@@ -12,7 +12,10 @@ public:
 	virtual ~CVectorsPane();
 
 protected:
-	CListCtrl m_ctrlVectorList;
+	static CListCtrl m_ctrlVectorList;
+
+public:
+	static CListCtrl& GetListCtrl();
 
 protected:
 	DECLARE_MESSAGE_MAP()

@@ -24,6 +24,8 @@
 #include "BandFormatDlg.h"
 
 #include <propkey.h>
+#include "RasterPane.h"
+#include "VectorsPane.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -66,7 +68,8 @@ CRsDoc::CRsDoc():m_pImage(NULL),
 	m_nRed(0),
 	m_nGreen(1),
 	m_nBlue(2),
-	m_nRealBandNum(0)
+	m_nRealBandNum(0),
+	m_pRasterState(NULL)
 {
 	// TODO: 在此添加一次性构造代码
 	HRESULT hr = CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&m_pImage);
@@ -91,6 +94,16 @@ CRsDoc::~CRsDoc()
 		m_pBacBuf = NULL;
 		m_pCurBuf = NULL;
 	}
+	if (m_pRasterState != NULL)
+	{
+		delete []m_pRasterState;
+		m_pRasterState = NULL;
+	}
+	m_vecImagePath.clear();
+	m_vecImageRect.clear();
+	m_recBac.Free();
+	m_recCur.Free();
+	UpdateList();
 }
 
 BOOL CRsDoc::OnNewDocument()
@@ -228,6 +241,11 @@ void CRsDoc::OnFileOpen()
 			m_pBacBuf = NULL;
 			m_pCurBuf = NULL;
 		}
+		if (m_pRasterState != NULL)
+		{
+			delete []m_pRasterState;
+			m_pRasterState = NULL;
+		}
 		m_recBac.Free();
 		m_recCur.Free();
 		POSITION pos = fdlg.GetStartPosition();
@@ -273,6 +291,13 @@ void CRsDoc::OnFileOpen()
 				m_lfMaxy = lfYOrigin+lfResolution*nRows;
 			}
 		}
+		m_pRasterState = new int[m_vecImagePath.size()];
+		for (size_t index = 0; index < m_vecImagePath.size(); ++index)
+		{
+			m_pRasterState[index] = 1;
+		}
+		UpdateList();
+		UpdateState();
 
 		if (m_bIsGrey)
 		{
@@ -471,10 +496,11 @@ void CRsDoc::FillData(RectFExt rect)
 		m_pBacBuf = new unsigned char[m_nBufWidth*m_nBufHeight*m_nBandNum];
 		memset(m_pBacBuf, 0, m_nBufWidth*m_nBufHeight*m_nBandNum);
 		auto PathNameIte = m_vecImagePath.begin();
+		int i = 0;
 		for (auto temIte = m_vecImageRect.begin(); temIte != m_vecImageRect.end(); ++temIte, ++PathNameIte)
 		{
 			RectFExt recResult;
-			if (rect.Intersects(*temIte))
+			if (rect.Intersects(*temIte) && m_pRasterState[i] == TRUE)
 			{
 				recResult = rect.Intersected(*temIte);
 				m_pImage->Open((*PathNameIte).AllocSysString(), modeRead|modeAqlut);
@@ -534,6 +560,7 @@ void CRsDoc::FillData(RectFExt rect)
 				}
 				m_pImage->Close();
 			}
+			++i;
 		}
 	}
 }
@@ -733,4 +760,53 @@ void CRsDoc::OnBandcomb()
 		m_bIsReady = TRUE;
 		UpdateAllViews(NULL);
 	}
+}
+
+void CRsDoc::UpdateList()
+{
+	CListCtrl& ctrlRasterList = CRasterPane::GetListCtrl();
+	CListCtrl& ctrlVectorList = CVectorsPane::GetListCtrl();
+	ctrlRasterList.DeleteAllItems();
+	ctrlVectorList.DeleteAllItems();
+
+	auto rasterIte = m_vecImagePath.begin();
+	while(rasterIte != m_vecImagePath.end())
+	{
+		ctrlRasterList.InsertItem(ctrlRasterList.GetItemCount(), *rasterIte);
+		ctrlRasterList.SetCheck(ctrlRasterList.GetItemCount()-1);
+		++rasterIte;
+	}
+}
+
+void CRsDoc::SetState(int nIndex, BOOL bState)
+{
+	bool bChanged = false;
+	if (m_pRasterState[nIndex] != bState)
+	{
+		bChanged = true;
+	}
+	m_pRasterState[nIndex] = bState;
+	if (bChanged)
+	{
+		m_recCur.Free();
+		FillData(m_recBac);
+		m_bIsReady = TRUE;
+		UpdateAllViews(NULL);
+	}
+}
+
+void CRsDoc::UpdateState()
+{
+	CListCtrl& ctrlRasterList = CRasterPane::GetListCtrl();
+	CListCtrl& ctrlVectorList = CVectorsPane::GetListCtrl();
+
+	for (int i = 0; i < ctrlRasterList.GetItemCount(); ++i)
+	{
+		m_pRasterState[i] = ctrlRasterList.GetCheck(i);
+	}
+}
+
+int* CRsDoc::GetRasterState()
+{
+	return m_pRasterState;
 }

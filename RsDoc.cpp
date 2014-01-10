@@ -104,6 +104,13 @@ CRsDoc::~CRsDoc()
 	m_recBac.Free();
 	m_recCur.Free();
 	UpdateList();
+	CFrameWnd* pMainFrm = (CFrameWnd*)AfxGetApp()->GetMainWnd();
+	CFrameWnd* pChildFrm = pMainFrm->GetActiveFrame();
+	CRsDoc* pDoc = reinterpret_cast<CRsDoc*>(pChildFrm->GetActiveDocument());
+	if (pDoc != NULL)
+	{
+		pDoc->UpdateList();
+	}
 }
 
 BOOL CRsDoc::OnNewDocument()

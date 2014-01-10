@@ -81,6 +81,9 @@ void CRasterPane::OnCtrlItemChanged(NMHDR *pNMHDR, LRESULT *pResult)
 	CFrameWnd* pMainFrm = (CFrameWnd*)AfxGetApp()->GetMainWnd();
 	CFrameWnd* pChildFrm = pMainFrm->GetActiveFrame();
 	CRsDoc* pDoc = reinterpret_cast<CRsDoc*>(pChildFrm->GetActiveDocument());
-	pDoc->SetState(pNMItemActivate->iItem, m_ctrlImageList.GetCheck(pNMItemActivate->iItem));
+	if (pNMItemActivate->uOldState != 0)
+	{
+		pDoc->SetState(pNMItemActivate->iItem, m_ctrlImageList.GetCheck(pNMItemActivate->iItem));
+	}
 	*pResult = 0;
 }

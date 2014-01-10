@@ -113,7 +113,7 @@ BOOL CRsDoc::OnNewDocument()
 
 	// TODO: 在此添加重新初始化代码
 	// (SDI 文档将重用该文档)
-
+	SetTitle(_T("New Doc"));
 	return TRUE;
 }
 
@@ -290,6 +290,14 @@ void CRsDoc::OnFileOpen()
 			{
 				m_lfMaxy = lfYOrigin+lfResolution*nRows;
 			}
+		}
+		if (m_vecImagePath.size() > 1)
+		{
+			SetTitle(m_vecImagePath.front()+_T("..."));
+		}
+		else
+		{
+			SetTitle(m_vecImagePath.front());
 		}
 		m_pRasterState = new int[m_vecImagePath.size()];
 		for (size_t index = 0; index < m_vecImagePath.size(); ++index)
@@ -770,11 +778,20 @@ void CRsDoc::UpdateList()
 	ctrlVectorList.DeleteAllItems();
 
 	auto rasterIte = m_vecImagePath.begin();
+	int i = 0;
 	while(rasterIte != m_vecImagePath.end())
 	{
 		ctrlRasterList.InsertItem(ctrlRasterList.GetItemCount(), *rasterIte);
-		ctrlRasterList.SetCheck(ctrlRasterList.GetItemCount()-1);
+		if (m_pRasterState[i] == 0)
+		{
+			ctrlRasterList.SetCheck(ctrlRasterList.GetItemCount()-1, 0);
+		}
+		else
+		{
+			ctrlRasterList.SetCheck(ctrlRasterList.GetItemCount()-1);
+		}
 		++rasterIte;
+		++i;
 	}
 }
 

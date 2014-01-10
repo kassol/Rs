@@ -16,6 +16,7 @@
 #include "Rs.h"
 
 #include "ChildFrm.h"
+#include "RsDoc.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -26,6 +27,7 @@
 IMPLEMENT_DYNCREATE(CChildFrame, CMDIChildWndEx)
 
 BEGIN_MESSAGE_MAP(CChildFrame, CMDIChildWndEx)
+	ON_WM_MDIACTIVATE()
 END_MESSAGE_MAP()
 
 // CChildFrame 构造/析构
@@ -64,3 +66,14 @@ void CChildFrame::Dump(CDumpContext& dc) const
 #endif //_DEBUG
 
 // CChildFrame 消息处理程序
+
+
+void CChildFrame::OnMDIActivate(BOOL bActivate, CWnd* pActivateWnd, CWnd* pDeactivateWnd)
+{
+	CMDIChildWndEx::OnMDIActivate(bActivate, pActivateWnd, pDeactivateWnd);
+
+	
+	CRsDoc* pDoc = reinterpret_cast<CRsDoc*>(GetActiveDocument());
+
+	pDoc->UpdateList();
+}

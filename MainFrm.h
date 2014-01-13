@@ -62,6 +62,8 @@ protected:
 
 	BOOL CreateCaptionBar();
 
+public:
+	afx_msg void OnFileOpen();
 };
 
 

@@ -16,6 +16,7 @@
 #include "Rs.h"
 
 #include "MainFrm.h"
+#include "RsDoc.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -34,6 +35,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CMDIFrameWndEx)
 	ON_COMMAND(ID_VIEW_CAPTION_BAR, &CMainFrame::OnViewCaptionBar)
 	ON_UPDATE_COMMAND_UI(ID_VIEW_CAPTION_BAR, &CMainFrame::OnUpdateViewCaptionBar)
 	ON_COMMAND(ID_TOOLS_OPTIONS, &CMainFrame::OnOptions)
+	ON_COMMAND(ID_FILE_OPEN, &CMainFrame::OnFileOpen)
 END_MESSAGE_MAP()
 
 // CMainFrame 构造/析构
@@ -89,7 +91,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	// 启用 Visual Studio 2005 样式停靠窗口行为
 	CDockingManager::SetDockingMode(DT_SMART);
 	// 启用 Visual Studio 2005 样式停靠窗口自动隐藏行为
-	EnableAutoHidePanes(CBRS_ALIGN_ANY);
+	//EnableAutoHidePanes(CBRS_ALIGN_ANY);
 
 	if (!m_wndRasterPane.Create(_T("影像列表"), this, CRect(0, 0, 200, 0), TRUE,
 		ID_DOCKABLE_RASTER_PANE, WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|
@@ -216,4 +218,10 @@ void CMainFrame::OnOptions()
 
 	pOptionsDlg->DoModal();
 	delete pOptionsDlg;
+}
+
+
+void CMainFrame::OnFileOpen()
+{
+	
 }

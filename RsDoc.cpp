@@ -38,6 +38,8 @@ IMPLEMENT_DYNCREATE(CRsDoc, CDocument)
 BEGIN_MESSAGE_MAP(CRsDoc, CDocument)
 	ON_COMMAND(ID_FILE_OPEN, &CRsDoc::OnFileOpen)
 	ON_COMMAND(ID_BANDCOMB, &CRsDoc::OnBandcomb)
+	ON_COMMAND(ID_ADDRASTER, &CRsDoc::OnAddraster)
+	ON_COMMAND(ID_ADDVECTOR, &CRsDoc::OnAddvector)
 END_MESSAGE_MAP()
 
 
@@ -833,4 +835,192 @@ void CRsDoc::UpdateState()
 int* CRsDoc::GetRasterState()
 {
 	return m_pRasterState;
+}
+
+
+void CRsDoc::OnAddraster()
+{
+	m_bIsReady = FALSE;
+	BYTE* szFileFilter = new BYTE[500];
+	m_pImage->GetSupExts(szFileFilter, modeRead);
+
+	CString strFileFilter(szFileFilter);
+	//AfxMessageBox(strFileFilter);
+	delete []szFileFilter;
+	szFileFilter = NULL;
+
+
+	CFileDialog fdlg(TRUE, NULL, NULL, 
+		OFN_ALLOWMULTISELECT | OFN_ENABLESIZING | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY,
+		strFileFilter, NULL, 0, TRUE);
+
+	const int MIN_FILE_NUMBER = 10;
+	fdlg.m_ofn.lpstrFile = new TCHAR[_MAX_PATH*MIN_FILE_NUMBER];
+	memset(fdlg.m_ofn.lpstrFile, 0, _MAX_PATH*MIN_FILE_NUMBER);
+	fdlg.m_ofn.nMaxFile = _MAX_PATH*MIN_FILE_NUMBER;
+
+	if (IDOK == fdlg.DoModal())
+	{
+		m_recBac.Free();
+		m_recCur.Free();
+		POSITION pos = fdlg.GetStartPosition();
+
+		while (NULL != pos)
+		{
+			CString strFilePath = fdlg.GetNextPathName(pos);
+			m_vecImagePath.push_back(strFilePath);
+			m_pImage->Open(strFilePath.AllocSysString(), modeRead|modeAqlut);
+			int nCols, nRows;
+			m_pImage->GetCols(&nCols);
+			m_pImage->GetRows(&nRows);
+			m_pImage->GetBandNum(&m_nBandNum);
+			m_nRealBandNum = m_nBandNum;
+			double lfXOrigin, lfYOrigin, lfResolution;
+			m_pImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfResolution);
+			m_pImage->Close();
+			if (m_nBandNum == 1)
+			{
+				m_bIsGrey = TRUE;
+			}
+			else
+			{
+				m_bIsGrey = FALSE;
+			}
+			m_vecImageRect.push_back(RectFExt(lfXOrigin, lfXOrigin+lfResolution*nCols, 
+				lfYOrigin+lfResolution*nRows,  lfYOrigin));
+			m_lfResolution = lfResolution;
+			if (m_lfMinx == 0 || m_lfMinx-lfXOrigin > 0.000001)
+			{
+				m_lfMinx = lfXOrigin;
+			}
+			if (m_lfMiny == 0 || m_lfMiny-lfYOrigin > 0.0000001)
+			{
+				m_lfMiny = lfYOrigin;
+			}
+			if (m_lfMaxx == 0 || lfXOrigin+lfResolution*nCols-m_lfMaxx > 0.0000001)
+			{
+				m_lfMaxx = lfXOrigin+lfResolution*nCols;
+			}
+			if (m_lfMaxy == 0 || lfYOrigin+lfResolution*nRows-m_lfMaxy > 0.0000001)
+			{
+				m_lfMaxy = lfYOrigin+lfResolution*nRows;
+			}
+		}
+
+		if (m_vecImagePath.size() > 1)
+		{
+			SetTitle(m_vecImagePath.front()+_T("..."));
+		}
+		else
+		{
+			SetTitle(m_vecImagePath.front());
+		}
+
+		if (m_pRasterState != NULL)
+		{
+			int* pRasterState = new int[m_vecImagePath.size()];
+			CListCtrl& ctrlRasterList = CRasterPane::GetListCtrl();
+			int nOldRasterCount = ctrlRasterList.GetItemCount();
+			memcpy(pRasterState, m_pRasterState, sizeof(int)*nOldRasterCount);
+			for (size_t index = nOldRasterCount; index < m_vecImagePath.size(); ++index)
+			{
+				pRasterState[index] = 1;
+			}
+			delete []m_pRasterState;
+			m_pRasterState = pRasterState;
+			pRasterState = NULL;
+		}
+		else
+		{
+			m_pRasterState = new int[m_vecImagePath.size()];
+			for (size_t index = 0; index < m_vecImagePath.size(); ++index)
+			{
+				m_pRasterState[index] = 1;
+			}
+		}
+		
+		UpdateList();
+		UpdateState();
+
+		if (m_bIsGrey)
+		{
+			m_nBandNum = 1;
+		}
+		else
+		{
+			m_nBandNum = 3;
+		}
+
+
+		m_nCols = int((m_lfMaxx-m_lfMinx)/m_lfResolution);
+		m_nRows = int((m_lfMaxy-m_lfMiny)/m_lfResolution);
+
+
+		CFrameWnd* pMainFrm = (CFrameWnd*)AfxGetApp()->GetMainWnd();
+		CFrameWnd* pChildFrm = pMainFrm->GetActiveFrame();
+
+		CRect rect;
+		pChildFrm->GetClientRect(&rect);
+
+		m_nWndWidth = rect.Width();
+		m_nWndHeight = rect.Height();
+
+
+		m_lfScale = (rect.Width()/(double)m_nCols < rect.Height()/(double)m_nRows ?
+			rect.Width()/(double)m_nCols : rect.Height()/(double)m_nRows);
+
+		if (m_lfScale -1 > 0.0000001)
+		{
+			m_lfScale = 1;
+		}
+		else
+		{
+			for (int n = 1; n < 17; n *= 2)
+			{
+				if (m_lfScale < 1/double(n))
+				{
+					if (n != 6)
+					{
+						continue;
+					}
+					m_lfScale = 1/double(n);
+				}
+				else
+				{
+					m_lfScale = 1/double(n);
+					break;
+				}
+			}
+		}
+
+		m_nBufWidth = int(m_nCols*m_lfScale);
+		m_nBufHeight = int(m_nRows*m_lfScale);
+
+		m_nScrollSizex = m_nBufWidth;
+		m_nScrollSizey = m_nBufHeight;
+
+		if (m_nBufHeight < m_nWndHeight || m_nBufWidth < m_nWndWidth)
+		{
+			m_nRealOriginx = (m_nWndWidth-m_nBufWidth)/2;
+			m_nRealOriginy = (m_nWndHeight-m_nBufHeight)/2;
+		}
+
+
+		double left = 0, right = 0, top = 0, bottom = 0;
+
+		Screen2Geo(0, 0, left, bottom);
+		Screen2Geo(m_nBufWidth, m_nBufHeight, right, top);
+
+		m_recBac = RectFExt(left, right, top, bottom);
+		FillData(m_recBac);
+		m_bIsReady = TRUE;
+		UpdateAllViews(NULL);
+	}
+	delete []fdlg.m_ofn.lpstrFile;
+}
+
+
+void CRsDoc::OnAddvector()
+{
+	
 }

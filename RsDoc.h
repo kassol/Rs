@@ -169,4 +169,6 @@ protected:
 public:
 	afx_msg void OnFileOpen();
 	afx_msg void OnBandcomb();
+	afx_msg void OnAddraster();
+	afx_msg void OnAddvector();
 };

@@ -97,7 +97,9 @@ public:
 private:
 	
 	IImageX* m_pImage;
+	CDxfDrawing m_dxffile;
 	std::vector<CString> m_vecImagePath;
+	std::vector<CString> m_vecShapePath;
 	double m_lfMinx;
 	double m_lfMaxx;
 	double m_lfMiny;
@@ -132,6 +134,10 @@ private:
 	BOOL m_bIsReady;
 
 	int* m_pRasterState;
+
+	std::vector<double*> m_vecX;
+	std::vector<double*> m_vecY;
+	std::vector<int> m_vecPointNum;
 
 	void  FillData(RectFExt rect);
 	void Geo2Buf(RectFExt rect, double lfxpos, double lfypos, long &nxpos, long &nypos);

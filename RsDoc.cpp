@@ -1022,5 +1022,72 @@ void CRsDoc::OnAddraster()
 
 void CRsDoc::OnAddvector()
 {
-	
+	CString strFileFilter = _T("AutoCAD ShapeFile(*.dxf)|*.dxf|All File(*.*)|*.*||");
+
+	CFileDialog fdlg(TRUE, NULL, NULL, 
+		OFN_ALLOWMULTISELECT | OFN_ENABLESIZING | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY,
+		strFileFilter, NULL, 0, TRUE);
+
+	const int MIN_FILE_NUMBER = 10;
+	fdlg.m_ofn.lpstrFile = new TCHAR[_MAX_PATH*MIN_FILE_NUMBER];
+	memset(fdlg.m_ofn.lpstrFile, 0, _MAX_PATH*MIN_FILE_NUMBER);
+	fdlg.m_ofn.nMaxFile = _MAX_PATH*MIN_FILE_NUMBER;
+
+	if (IDOK == fdlg.DoModal())
+	{
+		POSITION pos = fdlg.GetStartPosition();
+		while(NULL != pos)
+		{
+			CString strVectorPath = fdlg.GetNextPathName(pos);
+			m_vecShapePath.push_back(strVectorPath);
+		}
+		auto temIte = m_vecShapePath.begin();
+		while(temIte != m_vecShapePath.end())
+		{
+			if (m_dxffile.Create() && m_dxffile.LoadDXFFile(*temIte) == TRUE)
+			{
+				ENTITYHEADER EntityHeader;
+				char	 EntityData[4096];
+				OBJHANDLE hEntity;
+				hEntity = m_dxffile.FindEntity(FIND_FIRST, &EntityHeader, EntityData, NULL);
+				while (hEntity)
+				{
+					switch(EntityHeader.EntityType)
+					{
+					case ENT_POLYLINE:
+					case ENT_LINE3D:
+						{
+							PENTPOLYLINE pPolyline = (PENTPOLYLINE)EntityData;
+							int nVertexNum = pPolyline->nVertex;
+							if (nVertexNum > 2)
+							{
+								double *pX = new double[pPolyline->nVertex];
+								double *pY = new double[pPolyline->nVertex];
+								m_vecPointNum.push_back(pPolyline->nVertex);
+
+								memset(pX, 0, pPolyline->nVertex*sizeof(double));
+								memset(pY, 0, pPolyline->nVertex*sizeof(double));
+
+								for (int nIndex = 0; nIndex < pPolyline->nVertex; ++ nIndex)
+								{
+									pX[nIndex] = pPolyline->pVertex[nIndex].Point.x;
+									pY[nIndex] = pPolyline->pVertex[nIndex].Point.y;
+								}
+								m_vecX.push_back(pX);
+								m_vecY.push_back(pY);
+							}
+						}
+					}
+					hEntity = m_dxffile.FindEntity(FIND_NEXT, &EntityHeader, EntityData, NULL);
+				}
+			}
+			else
+			{
+				CString temp = _T("º”‘ÿdxf ß∞‹!");
+				AfxMessageBox(temp);
+				return;
+			}
+			++temIte;
+		}
+	}
 }

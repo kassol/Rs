@@ -1141,6 +1141,7 @@ void CRsDoc::OnAddvector()
 				AfxMessageBox(temp);
 				return;
 			}
+			m_dxffile.Destroy();
 			++temIte;
 		}
 

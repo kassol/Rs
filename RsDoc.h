@@ -163,6 +163,8 @@ public:
 	void SetState(int nIndex, BOOL bState);
 	void UpdateState();
 	int* GetRasterState();
+	void GetShapeIterator(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum);
+	void GetShapeIterEnd(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum);
 
 // 生成的消息映射函数
 protected:

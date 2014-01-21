@@ -63,7 +63,8 @@ private:
 public:
 	BOOL InitializeOpenGL();
 	BOOL SetupPixelformat();
-	void RenderScene();
+	void RenderRaster();
+	void RenderVector();
 
 // 生成的消息映射函数
 protected:

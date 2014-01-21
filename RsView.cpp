@@ -124,7 +124,8 @@ void CRsView::OnDraw(CDC* /*pDC*/)
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	RenderScene();
+	RenderRaster();
+	RenderVector();
 
 	SwapBuffers(m_pDC->GetSafeHdc());
 
@@ -241,7 +242,7 @@ BOOL CRsView::InitializeOpenGL()
 	return TRUE;
 }
 
-void CRsView::RenderScene()
+void CRsView::RenderRaster()
 {
 	CRsDoc* pDoc = GetDocument();
 	ASSERT_VALID(pDoc);
@@ -510,6 +511,43 @@ void CRsView::RenderScene()
 			++i;
 			++temIte;
 		}
+	}
+}
+
+void CRsView::RenderVector()
+{
+	CRsDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	long nRealOriginx = 0, nRealOriginy = 0;
+	pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
+
+	std::vector<double*>::iterator temIteX, temIteXEnd;
+	std::vector<double*>::iterator temIteY, temIteYEnd;
+	std::vector<int>::iterator temIteNum, temIteNumEnd;
+	pDoc->GetShapeIterator(temIteX, temIteY, temIteNum);
+	pDoc->GetShapeIterEnd(temIteXEnd, temIteYEnd, temIteNumEnd);
+
+	glColor3f(0, 1.0, 0);
+	long x = 0, y = 0;
+	while(temIteX != temIteXEnd)
+	{
+		double* pX = *temIteX;
+		double* pY = *temIteY;
+		glBegin(GL_LINE_LOOP);
+		for (int i = 0; i < *temIteNum; ++i)
+		{
+			pDoc->Geo2Screen(pX[i], pY[i], x, y);
+			x += nRealOriginx;
+			y += nRealOriginy;
+			glVertex2i(x, y);
+		}
+		glEnd();
+		++temIteX;
+		++temIteY;
+		++temIteNum;
 	}
 }
 

@@ -1091,3 +1091,17 @@ void CRsDoc::OnAddvector()
 		}
 	}
 }
+
+void CRsDoc::GetShapeIterator(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum)
+{
+	iteX = m_vecX.begin();
+	iteY = m_vecY.begin();
+	iteNum = m_vecPointNum.begin();
+}
+
+void CRsDoc::GetShapeIterEnd(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum)
+{
+	iteX = m_vecX.end();
+	iteY = m_vecY.end();
+	iteNum = m_vecPointNum.end();
+}

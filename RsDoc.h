@@ -134,6 +134,7 @@ private:
 	BOOL m_bIsReady;
 
 	int* m_pRasterState;
+	int* m_pVectorState;
 
 	std::vector<double*> m_vecX;
 	std::vector<double*> m_vecY;
@@ -159,10 +160,14 @@ public:
 	void SetRealOrigin(long nRealOriginx, long nRealOriginy);
 	void GetViewScale(double& lfScale);
 	void UpdateData();
-	void UpdateList();
-	void SetState(int nIndex, BOOL bState);
-	void UpdateState();
+	void UpdateRasterList();
+	void UpdateVectorList();
+	void SetRasterState(int nIndex, BOOL bState);
+	void SetVectorState(int nIndex, BOOL bState);
+	void UpdateRasterState();
+	void UpdateVectorState();
 	int* GetRasterState();
+	int* GetVectorState();
 	void GetShapeIterator(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum);
 	void GetShapeIterEnd(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum);
 

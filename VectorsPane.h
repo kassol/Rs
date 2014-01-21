@@ -22,6 +22,7 @@ protected:
 public:
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	afx_msg void OnCtrlItemChanged(NMHDR *pNMHDR, LRESULT *pResult);
 };
 
 

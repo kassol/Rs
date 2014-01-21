@@ -532,8 +532,19 @@ void CRsView::RenderVector()
 
 	glColor3f(0, 1.0, 0);
 	long x = 0, y = 0;
+	int nIndex = 0;
+	int* pState = pDoc->GetVectorState();
 	while(temIteX != temIteXEnd)
 	{
+
+		if (pState[nIndex] == 0)
+		{
+			++nIndex;
+			++temIteX;
+			++temIteY;
+			++temIteNum;
+			continue;
+		}
 		double* pX = *temIteX;
 		double* pY = *temIteY;
 		glBegin(GL_LINE_LOOP);
@@ -545,6 +556,7 @@ void CRsView::RenderVector()
 			glVertex2i(x, y);
 		}
 		glEnd();
+		++nIndex;
 		++temIteX;
 		++temIteY;
 		++temIteNum;

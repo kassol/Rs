@@ -71,7 +71,8 @@ CRsDoc::CRsDoc():m_pImage(NULL),
 	m_nGreen(1),
 	m_nBlue(2),
 	m_nRealBandNum(0),
-	m_pRasterState(NULL)
+	m_pRasterState(NULL),
+	m_pVectorState(NULL)
 {
 	// TODO: 在此添加一次性构造代码
 	HRESULT hr = CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&m_pImage);
@@ -105,13 +106,13 @@ CRsDoc::~CRsDoc()
 	m_vecImageRect.clear();
 	m_recBac.Free();
 	m_recCur.Free();
-	UpdateList();
+	UpdateRasterList();
 	CFrameWnd* pMainFrm = (CFrameWnd*)AfxGetApp()->GetMainWnd();
 	CFrameWnd* pChildFrm = pMainFrm->GetActiveFrame();
 	CRsDoc* pDoc = reinterpret_cast<CRsDoc*>(pChildFrm->GetActiveDocument());
 	if (pDoc != NULL)
 	{
-		pDoc->UpdateList();
+		pDoc->UpdateRasterList();
 	}
 }
 
@@ -313,8 +314,8 @@ void CRsDoc::OnFileOpen()
 		{
 			m_pRasterState[index] = 1;
 		}
-		UpdateList();
-		UpdateState();
+		UpdateRasterList();
+		UpdateRasterState();
 
 		if (m_bIsGrey)
 		{
@@ -779,12 +780,10 @@ void CRsDoc::OnBandcomb()
 	}
 }
 
-void CRsDoc::UpdateList()
+void CRsDoc::UpdateRasterList()
 {
 	CListCtrl& ctrlRasterList = CRasterPane::GetListCtrl();
-	CListCtrl& ctrlVectorList = CVectorsPane::GetListCtrl();
 	ctrlRasterList.DeleteAllItems();
-	ctrlVectorList.DeleteAllItems();
 
 	auto rasterIte = m_vecImagePath.begin();
 	int i = 0;
@@ -804,7 +803,30 @@ void CRsDoc::UpdateList()
 	}
 }
 
-void CRsDoc::SetState(int nIndex, BOOL bState)
+void CRsDoc::UpdateVectorList()
+{
+	CListCtrl& ctrlVectorList = CVectorsPane::GetListCtrl();
+	ctrlVectorList.DeleteAllItems();
+
+	auto vectorIte = m_vecShapePath.begin();
+	int i = 0;
+	while(vectorIte != m_vecShapePath.end())
+	{
+		ctrlVectorList.InsertItem(ctrlVectorList.GetItemCount(), *vectorIte);
+		if (m_pVectorState[i] == 0)
+		{
+			ctrlVectorList.SetCheck(ctrlVectorList.GetItemCount()-1, 0);
+		}
+		else
+		{
+			ctrlVectorList.SetCheck(ctrlVectorList.GetItemCount()-1);
+		}
+		++vectorIte;
+		++i;
+	}
+}
+
+void CRsDoc::SetRasterState(int nIndex, BOOL bState)
 {
 	bool bChanged = false;
 	if (m_pRasterState[nIndex] != bState)
@@ -821,10 +843,27 @@ void CRsDoc::SetState(int nIndex, BOOL bState)
 	}
 }
 
-void CRsDoc::UpdateState()
+void CRsDoc::SetVectorState(int nIndex, BOOL bState)
+{
+	bool bChanged = false;
+	if (m_pVectorState[nIndex] != bState)
+	{
+		bChanged = true;
+	}
+	m_pVectorState[nIndex] = bState;
+
+	if (bChanged)
+	{
+		m_recCur.Free();
+		FillData(m_recBac);
+		m_bIsReady = TRUE;
+		UpdateAllViews(NULL);
+	}
+}
+
+void CRsDoc::UpdateRasterState()
 {
 	CListCtrl& ctrlRasterList = CRasterPane::GetListCtrl();
-	CListCtrl& ctrlVectorList = CVectorsPane::GetListCtrl();
 
 	for (int i = 0; i < ctrlRasterList.GetItemCount(); ++i)
 	{
@@ -832,9 +871,24 @@ void CRsDoc::UpdateState()
 	}
 }
 
+void CRsDoc::UpdateVectorState()
+{
+	CListCtrl& ctrlVectorList = CVectorsPane::GetListCtrl();
+
+	for (int i = 0; i < ctrlVectorList.GetItemCount(); ++i)
+	{
+		m_pVectorState[i] = ctrlVectorList.GetCheck(i);
+	}
+}
+
 int* CRsDoc::GetRasterState()
 {
 	return m_pRasterState;
+}
+
+int* CRsDoc::GetVectorState()
+{
+	return m_pVectorState;
 }
 
 
@@ -939,8 +993,8 @@ void CRsDoc::OnAddraster()
 			}
 		}
 		
-		UpdateList();
-		UpdateState();
+		UpdateRasterList();
+		UpdateRasterState();
 
 		if (m_bIsGrey)
 		{
@@ -1089,6 +1143,36 @@ void CRsDoc::OnAddvector()
 			}
 			++temIte;
 		}
+
+
+
+		if (m_pVectorState != NULL)
+		{
+			int* pVectorState = new int[m_vecImagePath.size()];
+			CListCtrl& ctrlVectorList = CVectorsPane::GetListCtrl();
+			int nOldVectorCount = ctrlVectorList.GetItemCount();
+			memcpy(pVectorState, m_pRasterState, sizeof(int)*nOldVectorCount);
+			for (size_t index = nOldVectorCount; index < m_vecShapePath.size(); ++index)
+			{
+				pVectorState[index] = 1;
+			}
+			delete []m_pVectorState;
+			m_pVectorState = pVectorState;
+			pVectorState = NULL;
+		}
+		else
+		{
+			m_pVectorState = new int[m_vecShapePath.size()];
+			for (size_t index = 0; index < m_vecShapePath.size(); ++index)
+			{
+				m_pVectorState[index] = 1;
+			}
+		}
+
+		UpdateVectorList();
+		UpdateVectorState();
+
+		UpdateAllViews(NULL);
 	}
 }
 

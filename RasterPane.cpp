@@ -83,7 +83,7 @@ void CRasterPane::OnCtrlItemChanged(NMHDR *pNMHDR, LRESULT *pResult)
 	CRsDoc* pDoc = reinterpret_cast<CRsDoc*>(pChildFrm->GetActiveDocument());
 	if (pNMItemActivate->uOldState != 0)
 	{
-		pDoc->SetState(pNMItemActivate->iItem, m_ctrlImageList.GetCheck(pNMItemActivate->iItem));
+		pDoc->SetRasterState(pNMItemActivate->iItem, m_ctrlImageList.GetCheck(pNMItemActivate->iItem));
 	}
 	*pResult = 0;
 }

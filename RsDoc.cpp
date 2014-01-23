@@ -255,6 +255,9 @@ void CRsDoc::OnFileOpen()
 
 	if (IDOK == fdlg.DoModal())
 	{
+		m_nRed = 0;
+		m_nGreen = 1;
+		m_nBlue = 2;
 		m_lfMinx = 0;
 		m_lfMaxx = 0;
 		m_lfMiny = 0;

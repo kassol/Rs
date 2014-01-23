@@ -1158,14 +1158,6 @@ void CRsDoc::OnAddvector()
 			}
 			m_dxffile.Destroy();
 		}
-		/*auto temIte = m_vecShapePath.begin();
-		while(temIte != m_vecShapePath.end())
-		{
-
-		++temIte;
-		}*/
-
-
 
 		if (m_pVectorState != NULL)
 		{

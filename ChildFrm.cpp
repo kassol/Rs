@@ -76,4 +76,5 @@ void CChildFrame::OnMDIActivate(BOOL bActivate, CWnd* pActivateWnd, CWnd* pDeact
 	CRsDoc* pDoc = reinterpret_cast<CRsDoc*>(GetActiveDocument());
 
 	pDoc->UpdateRasterList();
+	pDoc->UpdateVectorList();
 }

@@ -527,8 +527,9 @@ void CRsView::RenderVector()
 	std::vector<double*>::iterator temIteX, temIteXEnd;
 	std::vector<double*>::iterator temIteY, temIteYEnd;
 	std::vector<int>::iterator temIteNum, temIteNumEnd;
-	pDoc->GetShapeIterator(temIteX, temIteY, temIteNum);
-	pDoc->GetShapeIterEnd(temIteXEnd, temIteYEnd, temIteNumEnd);
+	std::vector<int>::iterator temItePolyNum, temItePolyNumEnd;
+	pDoc->GetShapeIterator(temIteX, temIteY, temIteNum, temItePolyNum);
+	pDoc->GetShapeIterEnd(temIteXEnd, temIteYEnd, temIteNumEnd, temItePolyNumEnd);
 
 	glColor3f(0, 1.0, 0);
 	long x = 0, y = 0;
@@ -540,26 +541,35 @@ void CRsView::RenderVector()
 		if (pState[nIndex] == 0)
 		{
 			++nIndex;
+			for (int index = 0; index < *temItePolyNum; ++index)
+			{
+				++temIteX;
+				++temIteY;
+				++temIteNum;
+			}
+			++temItePolyNum;
+			continue;
+			
+		}
+		for (int index = 0; index <*temItePolyNum;++index)
+		{
+			double* pX = *temIteX;
+			double* pY = *temIteY;
+			glBegin(GL_LINE_LOOP);
+			for (int i = 0; i < *temIteNum; ++i)
+			{
+				pDoc->Geo2Screen(pX[i], pY[i], x, y);
+				x += nRealOriginx;
+				y += nRealOriginy;
+				glVertex2i(x, y);
+			}
+			glEnd();
 			++temIteX;
 			++temIteY;
 			++temIteNum;
-			continue;
 		}
-		double* pX = *temIteX;
-		double* pY = *temIteY;
-		glBegin(GL_LINE_LOOP);
-		for (int i = 0; i < *temIteNum; ++i)
-		{
-			pDoc->Geo2Screen(pX[i], pY[i], x, y);
-			x += nRealOriginx;
-			y += nRealOriginy;
-			glVertex2i(x, y);
-		}
-		glEnd();
 		++nIndex;
-		++temIteX;
-		++temIteY;
-		++temIteNum;
+		++temItePolyNum;
 	}
 }
 

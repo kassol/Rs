@@ -104,15 +104,31 @@ CRsDoc::~CRsDoc()
 	}
 	m_vecImagePath.clear();
 	m_vecImageRect.clear();
+	m_vecShapePath.clear();
+	auto temIteX = m_vecX.begin();
+	auto temIteY = m_vecY.begin();
+	while(temIteX != m_vecX.end())
+	{
+		delete [](*temIteX);
+		delete [](*temIteY);
+		++temIteX;
+		++temIteY;
+	}
+	m_vecX.clear();
+	m_vecY.clear();
+	m_vecPolygonNum.clear();
+	m_vecPointNum.clear();
 	m_recBac.Free();
 	m_recCur.Free();
 	UpdateRasterList();
+	UpdateVectorList();
 	CFrameWnd* pMainFrm = (CFrameWnd*)AfxGetApp()->GetMainWnd();
 	CFrameWnd* pChildFrm = pMainFrm->GetActiveFrame();
 	CRsDoc* pDoc = reinterpret_cast<CRsDoc*>(pChildFrm->GetActiveDocument());
 	if (pDoc != NULL)
 	{
 		pDoc->UpdateRasterList();
+		pDoc->UpdateVectorList();
 	}
 }
 
@@ -1094,16 +1110,13 @@ void CRsDoc::OnAddvector()
 		{
 			CString strVectorPath = fdlg.GetNextPathName(pos);
 			m_vecShapePath.push_back(strVectorPath);
-		}
-		auto temIte = m_vecShapePath.begin();
-		while(temIte != m_vecShapePath.end())
-		{
-			if (m_dxffile.Create() && m_dxffile.LoadDXFFile(*temIte) == TRUE)
+			if (m_dxffile.Create() && m_dxffile.LoadDXFFile(strVectorPath.GetBuffer(0)) == TRUE)
 			{
 				ENTITYHEADER EntityHeader;
 				char	 EntityData[4096];
 				OBJHANDLE hEntity;
 				hEntity = m_dxffile.FindEntity(FIND_FIRST, &EntityHeader, EntityData, NULL);
+				int nPolygonCount = 0;
 				while (hEntity)
 				{
 					switch(EntityHeader.EntityType)
@@ -1129,11 +1142,13 @@ void CRsDoc::OnAddvector()
 								}
 								m_vecX.push_back(pX);
 								m_vecY.push_back(pY);
+								++nPolygonCount;
 							}
 						}
 					}
 					hEntity = m_dxffile.FindEntity(FIND_NEXT, &EntityHeader, EntityData, NULL);
 				}
+				m_vecPolygonNum.push_back(nPolygonCount);
 			}
 			else
 			{
@@ -1142,8 +1157,13 @@ void CRsDoc::OnAddvector()
 				return;
 			}
 			m_dxffile.Destroy();
-			++temIte;
 		}
+		/*auto temIte = m_vecShapePath.begin();
+		while(temIte != m_vecShapePath.end())
+		{
+
+		++temIte;
+		}*/
 
 
 
@@ -1177,16 +1197,18 @@ void CRsDoc::OnAddvector()
 	}
 }
 
-void CRsDoc::GetShapeIterator(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum)
+void CRsDoc::GetShapeIterator(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum, std::vector<int>::iterator& itePolyNum)
 {
 	iteX = m_vecX.begin();
 	iteY = m_vecY.begin();
 	iteNum = m_vecPointNum.begin();
+	itePolyNum = m_vecPolygonNum.begin();
 }
 
-void CRsDoc::GetShapeIterEnd(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum)
+void CRsDoc::GetShapeIterEnd(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum, std::vector<int>::iterator& itePolyNum)
 {
 	iteX = m_vecX.end();
 	iteY = m_vecY.end();
 	iteNum = m_vecPointNum.end();
+	itePolyNum = m_vecPolygonNum.end();
 }

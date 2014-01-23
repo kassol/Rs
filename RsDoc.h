@@ -139,6 +139,7 @@ private:
 	std::vector<double*> m_vecX;
 	std::vector<double*> m_vecY;
 	std::vector<int> m_vecPointNum;
+	std::vector<int> m_vecPolygonNum;
 
 	void  FillData(RectFExt rect);
 	void Geo2Buf(RectFExt rect, double lfxpos, double lfypos, long &nxpos, long &nypos);
@@ -168,8 +169,8 @@ public:
 	void UpdateVectorState();
 	int* GetRasterState();
 	int* GetVectorState();
-	void GetShapeIterator(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum);
-	void GetShapeIterEnd(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum);
+	void GetShapeIterator(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum, std::vector<int>::iterator& itePolyNum);
+	void GetShapeIterEnd(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum, std::vector<int>::iterator& itePolyNum);
 
 // 生成的消息映射函数
 protected:

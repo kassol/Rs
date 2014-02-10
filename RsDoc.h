@@ -97,7 +97,7 @@ public:
 private:
 	
 	IImageX* m_pImage;
-	CDxfDrawing m_dxffile;
+	CDrawing m_dxffile;
 	std::vector<CString> m_vecImagePath;
 	std::vector<CString> m_vecShapePath;
 	double m_lfMinx;

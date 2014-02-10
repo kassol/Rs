@@ -55,9 +55,7 @@
 
 #include "glut.h"
 
-#include "include/CadLib.h"
-
-#pragma comment(lib, "lib\\CadLib.lib")
+#include "CadLib.h"
 
 extern GLuint g_tex;
 

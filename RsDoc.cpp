@@ -13,7 +13,6 @@
 //
 
 #include "stdafx.h"
-#include <vld.h>
 // SHARED_HANDLERS 可以在实现预览、缩略图和搜索筛选器句柄的
 // ATL 项目中进行定义，并允许与该项目共享文档代码。
 #ifndef SHARED_HANDLERS
@@ -26,6 +25,8 @@
 #include <propkey.h>
 #include "RasterPane.h"
 #include "VectorsPane.h"
+#include <algorithm>
+#include <fstream>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -40,6 +41,7 @@ BEGIN_MESSAGE_MAP(CRsDoc, CDocument)
 	ON_COMMAND(ID_BANDCOMB, &CRsDoc::OnBandcomb)
 	ON_COMMAND(ID_ADDRASTER, &CRsDoc::OnAddraster)
 	ON_COMMAND(ID_ADDVECTOR, &CRsDoc::OnAddvector)
+	ON_COMMAND(ID_GENERATElINE, &CRsDoc::OnGenerateline)
 END_MESSAGE_MAP()
 
 
@@ -87,7 +89,7 @@ CRsDoc::~CRsDoc()
 {
 	if (m_pImage != NULL)
 	{
-		//m_pImage->Close();
+		m_pImage->Close();
 		m_pImage->Release();
 		m_pImage = NULL;
 	}
@@ -292,6 +294,7 @@ void CRsDoc::OnFileOpen()
 			double lfXOrigin, lfYOrigin, lfResolution;
 			m_pImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfResolution);
 			m_pImage->Close();
+			_CrtDumpMemoryLeaks();
 			if (m_nBandNum == 1)
 			{
 				m_bIsGrey = TRUE;
@@ -588,12 +591,14 @@ void CRsDoc::FillData(RectFExt rect)
 				}
 				else
 				{
+// 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+// 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nRed, 0);
+// 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+// 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nGreen, 1);
+// 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+// 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nBlue, 2);
 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nRed, 0);
-					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nGreen, 1);
-					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nBlue, 2);
+						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, -1, 0);
 				}
 				m_pImage->Close();
 			}
@@ -918,7 +923,6 @@ void CRsDoc::OnAddraster()
 	m_pImage->GetSupExts(szFileFilter, modeRead);
 
 	CString strFileFilter(szFileFilter);
-	//AfxMessageBox(strFileFilter);
 	delete []szFileFilter;
 	szFileFilter = NULL;
 
@@ -932,6 +936,8 @@ void CRsDoc::OnAddraster()
 	memset(fdlg.m_ofn.lpstrFile, 0, _MAX_PATH*MIN_FILE_NUMBER);
 	fdlg.m_ofn.nMaxFile = _MAX_PATH*MIN_FILE_NUMBER;
 
+
+	CString strAllPath;
 	if (IDOK == fdlg.DoModal())
 	{
 		m_recBac.Free();
@@ -1092,6 +1098,44 @@ void CRsDoc::OnAddraster()
 	delete []fdlg.m_ofn.lpstrFile;
 }
 
+void CRsDoc::ParsePolygon()
+{
+	if (!m_vecMosaicLine.empty())
+	{
+		std::for_each(m_vecMosaicLine.begin(), m_vecMosaicLine.end(), [](PolygonExt& poly)
+		{
+			poly.Free();
+		});
+		m_vecMosaicLine.clear();
+	}
+
+	CString strOutPath = _T("D:\\output\\");
+	std::for_each(m_vecImagePath.begin(), m_vecImagePath.end(), [&](CString imagepath)
+	{
+		CString rrlx = strOutPath+imagepath.Right(
+			imagepath.GetLength()-imagepath.ReverseFind('\\')-1);
+		rrlx = rrlx.Left(rrlx.ReverseFind('.'))+_T(".rrlx");
+		std::fstream infile;
+		infile.open(rrlx.GetBuffer(0), std::ios::in);
+		int point_count = 0;
+		infile>>point_count;
+		double* px = new double[point_count];
+		memset(px, 0, sizeof(double)*point_count);
+		double* py = new double[point_count];
+		memset(py, 0, sizeof(double)*point_count);
+		int temp = 0;
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i]>>temp;
+		}
+		m_vecMosaicLine.push_back(PolygonExt(point_count, px, py));
+	});
+}
+
+std::vector<PolygonExt>& CRsDoc::GetPolygonVec()
+{
+	return m_vecMosaicLine;
+}
 
 void CRsDoc::OnAddvector()
 {
@@ -1206,4 +1250,28 @@ void CRsDoc::GetShapeIterEnd(std::vector<double*>::iterator& iteX, std::vector<d
 	iteY = m_vecY.end();
 	iteNum = m_vecPointNum.end();
 	itePolyNum = m_vecPolygonNum.end();
+}
+
+void CRsDoc::OnGenerateline()
+{
+	CString strAllPath;
+	std::for_each(m_vecImagePath.begin(), m_vecImagePath.end(), [&](CString ImagePath)
+	{
+		strAllPath += ImagePath;
+		strAllPath += ";";
+	});
+
+	strAllPath = strAllPath.Left(strAllPath.GetLength()-1);
+
+	IMosaic* pMosaic = NULL;
+	HRESULT hr = CoCreateInstance(CLSID_Mosaic, NULL, CLSCTX_ALL, IID_IMosaic, (void**)&pMosaic);
+	if (FAILED(hr))
+	{
+		return;
+	}
+	int novaliddomnum;
+	int *index = NULL;
+	pMosaic->InitialOrthoProMosaicLines(strAllPath.AllocSysString(), _bstr_t("D:\\output\\"), &novaliddomnum, index);
+	ParsePolygon();
+	UpdateAllViews(NULL);
 }

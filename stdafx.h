@@ -50,6 +50,7 @@
 
 
 #import "ImageX.tlb" no_namespace, named_guids
+#import "CoMosaic.tlb" no_namespace, named_guids
 
 #include <vector>
 
@@ -58,6 +59,11 @@
 #include "CadLib.h"
 
 extern GLuint g_tex;
+
+//#include <vld.h>
+
+#define _CRTDBG_MAP_ALLOC
+#include <crtdbg.h>
 
 
 #ifdef _UNICODE

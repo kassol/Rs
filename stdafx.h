@@ -66,6 +66,12 @@ extern GLuint g_tex;
 #include <crtdbg.h>
 
 
+#define _SnapSame(x1, x2, lfSnap)		(0==lfSnap?x1==x2:fabs(x1-x2)<lfSnap)
+#define _SnapLarge(x1, x2, lfSnap)	    (x1>x2-lfSnap)
+#define _SnapLarge2(x1, x2, lfSnap)	    (x1>x2+lfSnap)
+int PtInRegionEx(double x, double y, double* pX, double* pY, int nSum, double lfSnap);
+
+
 #ifdef _UNICODE
 #if defined _M_IX86
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")

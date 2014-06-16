@@ -212,4 +212,5 @@ public:
 	afx_msg void OnAddraster();
 	afx_msg void OnAddvector();
 	afx_msg void OnGenerateline();
+	afx_msg void OnDxf2dsm();
 };

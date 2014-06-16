@@ -42,6 +42,7 @@ BEGIN_MESSAGE_MAP(CRsDoc, CDocument)
 	ON_COMMAND(ID_ADDRASTER, &CRsDoc::OnAddraster)
 	ON_COMMAND(ID_ADDVECTOR, &CRsDoc::OnAddvector)
 	ON_COMMAND(ID_GENERATElINE, &CRsDoc::OnGenerateline)
+	ON_COMMAND(ID_DXF2DSM, &CRsDoc::OnDxf2dsm)
 END_MESSAGE_MAP()
 
 
@@ -1274,4 +1275,221 @@ void CRsDoc::OnGenerateline()
 	pMosaic->InitialOrthoProMosaicLines(strAllPath.AllocSysString(), _bstr_t("D:\\output\\"), &novaliddomnum, index);
 	ParsePolygon();
 	UpdateAllViews(NULL);
+}
+
+
+void CRsDoc::OnDxf2dsm()
+{
+	CString strFileFilter = _T("DXF(*.dxf)|*.dxf||");
+	CFileDialog fdlg(TRUE, NULL, NULL, 
+			OFN_ENABLESIZING | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY,
+		strFileFilter, NULL, 0, TRUE);
+	CString strDxf;
+	if (IDOK == fdlg.DoModal())
+	{
+		strDxf = fdlg.GetPathName();
+
+		if (m_dxffile.Create() && m_dxffile.LoadDXFFile(strDxf) == TRUE)
+		{
+			ENTITYHEADER EntityHeader;
+			char	 EntityData[4096];
+			OBJHANDLE hEntity;
+			hEntity = m_dxffile.FindEntity(FIND_FIRST, &EntityHeader, EntityData, NULL);
+			int nPolygonCount = 0;
+			std::vector<int> vecPointNum;
+			std::vector<double*> vecX;
+			std::vector<double*> vecY;
+			std::vector<double*>vecEXx;
+			std::vector<double*>vecExy;
+
+			double lfMinx = 0, lfMiny = 0, lfMaxx = 0, lfMaxy = 0;
+
+			while (hEntity)
+			{
+				switch(EntityHeader.EntityType)
+				{
+				case ENT_POLYLINE:
+				case ENT_LINE3D:
+					{
+						PENTPOLYLINE pPolyline = (PENTPOLYLINE)EntityData;
+						int nVertexNum = pPolyline->nVertex;
+						if (nVertexNum > 2)
+						{
+							double *pX = new double[pPolyline->nVertex];
+							double *pY = new double[pPolyline->nVertex];
+							vecPointNum.push_back(pPolyline->nVertex);
+
+							memset(pX, 0, pPolyline->nVertex*sizeof(double));
+							memset(pY, 0, pPolyline->nVertex*sizeof(double));
+
+							double minx = 0, miny = 0, maxx = 0, maxy = 0;
+							double *ppX = new double[5];
+							double *ppY = new double[5];
+							for (int nIndex = 0; nIndex < pPolyline->nVertex; ++ nIndex)
+							{
+								pX[nIndex] = pPolyline->pVertex[nIndex].Point.x;
+								pY[nIndex] = pPolyline->pVertex[nIndex].Point.y;
+								
+
+
+								if (lfMinx == 0 || lfMinx > pX[nIndex])
+								{
+									lfMinx = pX[nIndex];
+								}
+								if (lfMiny == 0 || lfMiny > pY[nIndex])
+								{
+									lfMiny = pY[nIndex];
+								}
+								if (lfMaxx == 0 || lfMaxx < pX[nIndex])
+								{
+									lfMaxx = pX[nIndex];
+								}
+								if (lfMaxy == 0 || lfMaxy < pY[nIndex])
+								{
+									lfMaxy = pY[nIndex];
+								}
+
+								if (minx == 0 || minx > pX[nIndex])
+								{
+									minx = pX[nIndex];
+								}
+								if (miny == 0 || miny > pY[nIndex])
+								{
+									miny = pY[nIndex];
+								}
+								if (maxx == 0 || maxx < pX[nIndex])
+								{
+									maxx = pX[nIndex];
+								}
+								if (maxy == 0 || maxy < pY[nIndex])
+								{
+									maxy = pY[nIndex];
+								}
+							}
+
+							ppX[0] = minx;
+							ppX[1] = minx;
+							ppX[2] = maxx;
+							ppX[3] = maxx;
+							ppX[4] = minx;
+							ppY[0] = maxy;
+							ppY[1] = miny;
+							ppY[2] = miny;
+							ppY[3] = maxy;
+							ppY[4] = maxy;
+
+							vecEXx.push_back(ppX);
+							vecExy.push_back(ppY);
+
+							vecX.push_back(pX);
+							vecY.push_back(pY);
+							++nPolygonCount;
+						}
+					}
+				}
+				hEntity = m_dxffile.FindEntity(FIND_NEXT, &EntityHeader, EntityData, NULL);
+			}
+			m_dxffile.Destroy();
+
+			
+			double cellsize = 2.0;
+
+			double lfXOrigin = int(lfMinx/cellsize)*cellsize;
+			double lfYOrigin = int(lfMiny/cellsize)*cellsize;
+			double lfXEnd = int(lfMaxx/cellsize+1)*cellsize;
+			double lfYEnd = int(lfMaxy/cellsize+1)*cellsize;
+			int nXSize = int((lfXEnd-lfXOrigin)/cellsize);
+			int nYSize = int((lfYEnd-lfYOrigin)/cellsize);
+
+			std::fstream out;
+			out<<std::fixed;
+			out.open("D:\\out_2m.dem", std::ios::out);
+			out<<"NSDTF-DEM\n";
+			out<<"1.0\n";
+			out<<"M\n";
+			out<<"0.000000\n";
+			out<<"0.000000\n";
+			out<<lfXOrigin<<"\n";
+			out<<lfYEnd<<"\n";
+			out<<cellsize<<"\n";
+			out<<cellsize<<"\n";
+			out<<nYSize<<"\n";
+			out<<nXSize<<"\n";
+			out<<"1\n";
+
+			float high = 100.0;
+			float low = 0.0;
+
+			float* pbuf = new float[nXSize];
+
+			for (int y = 0; y < nYSize; ++y)
+			{
+				memset(pbuf, 0, nXSize*sizeof(float));
+				for (int x = 0; x < nXSize; ++x)
+				{
+					auto itex = vecX.begin();
+					auto itey = vecY.begin();
+					auto itenum = vecPointNum.begin();
+					auto itexx = vecEXx.begin();
+					auto iteyy = vecExy.begin();
+					bool isIn = false;
+
+					while(itex != vecX.end())
+					{
+						isIn = isIn || (-1 != PtInRegionEx(lfXOrigin+x*cellsize, lfYEnd-y*cellsize, *itexx, *iteyy, 5, 0.000001) &&
+							-1 != PtInRegionEx(lfXOrigin+x*cellsize, lfYEnd-y*cellsize, *itex, *itey, *itenum, 0.000001));
+						if (isIn)
+						{
+							break;
+						}
+						++itex;
+						++itey;
+						++itenum;
+						++itexx;
+						++iteyy;
+					}
+					if (isIn)
+					{
+						pbuf[x] = high;
+					}
+				}
+
+				for (int i = 0; i < nXSize-1; ++i)
+				{
+					out<<pbuf[i]<<" ";
+				}
+				out<<pbuf[nXSize-1]<<"\n";
+			}
+
+			delete []pbuf;
+			pbuf = NULL;
+			out<<"\n";
+
+			out.close();
+			auto itex = vecX.begin();
+			auto itey = vecY.begin();
+			auto itexx = vecEXx.begin();
+			auto iteyy = vecExy.begin();
+			while(itex != vecX.end())
+			{
+				delete [](*itex);
+				delete [](*itey);
+				delete [](*itexx);
+				delete [](*iteyy);
+				++itex;
+				++itey;
+				++itexx;
+				++iteyy;
+			}
+			vecX.clear();
+			vecY.clear();
+			vecPointNum.clear();
+		}
+		else
+		{
+			CString temp = _T("¼ÓÔØdxfÊ§°Ü!");
+			AfxMessageBox(temp);
+			return;
+		}
+	}
 }

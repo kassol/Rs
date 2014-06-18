@@ -69,9 +69,20 @@ struct PolygonExt
 		: point_count_(point_count)
 		, px_(px)
 		, py_(py)
+		, index_name_("")
 	{
 
 	}
+
+	PolygonExt(int point_count, double* px, double* py, CString index_name)
+		: point_count_(point_count)
+		, px_(px)
+		, py_(py)
+		, index_name_(index_name)
+	{
+
+	}
+
 	void Free()
 	{
 		point_count_ = 0;
@@ -83,6 +94,7 @@ struct PolygonExt
 	int point_count_;
 	double* px_;
 	double* py_;
+	CString index_name_;
 };
 
 
@@ -213,4 +225,5 @@ public:
 	afx_msg void OnAddvector();
 	afx_msg void OnGenerateline();
 	afx_msg void OnDxf2dsm();
+	afx_msg void OnOptimize();
 };

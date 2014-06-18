@@ -43,6 +43,7 @@ BEGIN_MESSAGE_MAP(CRsDoc, CDocument)
 	ON_COMMAND(ID_ADDVECTOR, &CRsDoc::OnAddvector)
 	ON_COMMAND(ID_GENERATElINE, &CRsDoc::OnGenerateline)
 	ON_COMMAND(ID_DXF2DSM, &CRsDoc::OnDxf2dsm)
+	ON_COMMAND(ID_OPTIMIZE, &CRsDoc::OnOptimize)
 END_MESSAGE_MAP()
 
 
@@ -1492,4 +1493,40 @@ void CRsDoc::OnDxf2dsm()
 			return;
 		}
 	}
+}
+
+
+void CRsDoc::OnOptimize()
+{
+	auto path_ite = m_vecImagePath.begin();
+	std::fstream infile;
+	std::vector<PolygonExt> polygons;
+	while (path_ite != m_vecImagePath.end())
+	{
+		CString image_path = *path_ite;
+		CString index_name = image_path.Right(image_path.GetLength()-image_path.ReverseFind('\\')-1);
+		index_name = index_name.Left(index_name.ReverseFind('.'));
+		CString rrlx_path = _T("D:\\output\\")+index_name+_T(".rrlx");
+		infile.open(rrlx_path.GetBuffer(0), std::ios::in);
+
+		int point_count = 0;
+		infile>>point_count;
+
+		double* px = new double[point_count];
+		memset(px, 0, sizeof(double)*point_count);
+		double* py = new double[point_count];
+		memset(py, 0, sizeof(double)*point_count);
+
+		int temp = 0;
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i]>>temp;
+		}
+
+		polygons.push_back(PolygonExt(point_count, px, py, index_name));
+
+		infile.close();
+		++path_ite;
+	}
+
 }

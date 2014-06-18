@@ -593,7 +593,7 @@ void CRsView::RenderPolygon()
 	long x = 0, y = 0;
 	while(poly_ite != poly.end())
 	{
-		glColor3f(1.0, 1.0, 1.0);
+		glColor3f(0, 0, 1.0);
 		for (int i = 0; i < poly_ite->point_count_; ++i)
 		{
 			pDoc->Geo2Screen(poly_ite->px_[i], poly_ite->py_[i], x, y);

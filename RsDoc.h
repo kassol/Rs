@@ -101,11 +101,13 @@ struct NodeProperty
 {
 	NodeProperty(int shared_by)
 		: shared_by_(shared_by)
+		, available_(true)
 	{
 
 	}
 	int shared_by_;
 	CString index_name_n_[3];
+	bool available_;
 };
 
 struct PolygonExt2

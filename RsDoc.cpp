@@ -1560,4 +1560,15 @@ void CRsDoc::OnOptimize()
 		}
 		++polygon_ite;
 	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		auto ite = polygon_ite->np_.begin();
+		while (ite != polygon_ite->np_.end())
+		{
+			++ite;
+		}
+		++polygon_ite;
+	}
 }

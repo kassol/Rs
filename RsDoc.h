@@ -97,6 +97,34 @@ struct PolygonExt
 	CString index_name_;
 };
 
+struct NodeProperty
+{
+	NodeProperty(int shared_by)
+		: shared_by_(shared_by)
+	{
+
+	}
+	int shared_by_;
+	CString index_name_n_[3];
+};
+
+struct PolygonExt2
+{
+	PolygonExt2(int point_count, double* px, double* py, CString index_name)
+		: point_count_(point_count)
+		, px_(px)
+		, py_(py)
+		, index_name_(index_name)
+	{
+		np_.resize(point_count_, 1);
+	}
+	int point_count_;
+	double* px_;
+	double* py_;
+	CString index_name_;
+	std::vector<NodeProperty> np_;
+};
+
 
 class CRsDoc : public CDocument
 {

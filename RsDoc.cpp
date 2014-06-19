@@ -1500,7 +1500,7 @@ void CRsDoc::OnOptimize()
 {
 	auto path_ite = m_vecImagePath.begin();
 	std::fstream infile;
-	std::vector<PolygonExt> polygons;
+	std::vector<PolygonExt2> polygons;
 	while (path_ite != m_vecImagePath.end())
 	{
 		CString image_path = *path_ite;
@@ -1523,10 +1523,41 @@ void CRsDoc::OnOptimize()
 			infile>>px[i]>>py[i]>>temp;
 		}
 
-		polygons.push_back(PolygonExt(point_count, px, py, index_name));
+		polygons.push_back(PolygonExt2(point_count, px, py, index_name));
 
 		infile.close();
 		++path_ite;
 	}
 
+	auto polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int num = polygon_ite->point_count_;
+
+		for (auto polygon_ite2 = polygons.begin();
+			polygon_ite2 < polygons.end();
+			++polygon_ite2)
+		{
+			if (polygon_ite2 != polygon_ite)
+			{
+				double* px2 = polygon_ite2->px_;
+				double* py2 = polygon_ite2->py_;
+				int num2 = polygon_ite2->point_count_;
+				for (int n = 0; n < num; ++n)
+				{
+					for (int m = 0; m < num2; ++m)
+					{
+						if (px[n] == px2[m] && py[n] == py2[m])
+						{
+							polygon_ite->np_[n].index_name_n_[polygon_ite->np_[n].shared_by_-1] = polygon_ite2->index_name_;
+							++(polygon_ite->np_[n].shared_by_);
+						}
+					}
+				}
+			}
+		}
+		++polygon_ite;
+	}
 }

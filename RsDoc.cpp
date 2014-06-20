@@ -1567,8 +1567,47 @@ void CRsDoc::OnOptimize()
 		auto ite = polygon_ite->np_.begin();
 		while (ite != polygon_ite->np_.end())
 		{
+			if (ite == polygon_ite->np_.begin())
+			{
+				if (ite->shared_by_ == 2 && polygon_ite->np_.back().shared_by_ != 1
+					&& (ite+1)->shared_by_ != 1
+					&& NotImportant(*ite, polygon_ite->np_.back(), *(ite+1)))
+				{
+					ite->available_ = false;
+				}
+			}
+			else if (ite == polygon_ite->np_.end()-1)
+			{
+				if (ite->shared_by_ == 2 && (ite-1)->shared_by_ != 1
+					&& polygon_ite->np_.front().shared_by_ != 1
+					&& NotImportant(*ite, *(ite-1), polygon_ite->np_.front()))
+				{
+					ite->available_ = false;
+				}
+			}
+			else
+			{
+				if (ite->shared_by_ == 2 && (ite-1)->shared_by_ != 1
+					&& (ite+1)->shared_by_ != 1
+					&& NotImportant(*ite, *(ite+1), *(ite-1)))
+				{
+					ite->available_ = false;
+				}
+			}
 			++ite;
 		}
 		++polygon_ite;
 	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		polygon_ite->DeletePoint();
+		polygon_ite->Output("D:\\output\\");
+		polygon_ite->Free();
+		++polygon_ite;
+	}
+
+	ParsePolygon();
+	UpdateAllViews(NULL);
 }

@@ -14,6 +14,8 @@
 
 
 #pragma once
+#include <algorithm>
+#include <fstream>
 
 
 struct RectFExt
@@ -110,6 +112,37 @@ struct NodeProperty
 	bool available_;
 };
 
+static bool NotImportant(NodeProperty& center, NodeProperty& left, NodeProperty& right)
+{
+	CString leftstr = center.index_name_n_[0];
+	CString rightstr = center.index_name_n_[1];
+	if (leftstr != left.index_name_n_[0] && leftstr != left.index_name_n_[1]
+	&& leftstr != left.index_name_n_[2])
+	{
+		return false;
+	}
+
+	if (rightstr != left.index_name_n_[0] && rightstr != left.index_name_n_[1]
+	&& rightstr != left.index_name_n_[2])
+	{
+		return false;
+	}
+
+	if (leftstr != right.index_name_n_[0] && leftstr != right.index_name_n_[1]
+	&& leftstr != right.index_name_n_[2])
+	{
+		return false;
+	}
+
+	if (rightstr != right.index_name_n_[0] && rightstr != right.index_name_n_[1]
+	&& rightstr != right.index_name_n_[2])
+	{
+		return false;
+	}
+
+	return true;
+}
+
 struct PolygonExt2
 {
 	PolygonExt2(int point_count, double* px, double* py, CString index_name)
@@ -120,6 +153,65 @@ struct PolygonExt2
 	{
 		np_.resize(point_count_, 1);
 	}
+
+	void DeletePoint()
+	{
+		int temp_point_count = 0;
+		std::for_each(np_.begin(), np_.end(),
+			[&temp_point_count](NodeProperty np)
+		{
+			if (np.available_)
+			{
+				++temp_point_count;
+			}
+		});
+
+		double* temp_px = new double[temp_point_count];
+		double* temp_py = new double[temp_point_count];
+		memset(temp_px, 0, sizeof(double)*temp_point_count);
+		memset(temp_py, 0, sizeof(double)*temp_point_count);
+
+		for (int i = 0, offset = 0; i < temp_point_count; ++i)
+		{
+			while(!np_[i+offset].available_)
+			{
+				++offset;
+			}
+			temp_px[i] = px_[i+offset];
+			temp_py[i] = py_[i+offset];
+		}
+
+		point_count_ = temp_point_count;
+		delete []px_;
+		delete []py_;
+		px_ = temp_px;
+		py_ = temp_py;
+	}
+	void Output(CString path)
+	{
+		path += index_name_;
+		path += _T(".rrlx");
+		std::fstream outfile;
+		outfile.open(path.LockBuffer(), std::ios::out);
+		if (outfile != NULL)
+		{
+			outfile<<std::fixed;
+			outfile<<point_count_<<std::endl;
+			for (int i = 0; i < point_count_; ++i)
+			{
+				outfile<<px_[i]<<"   "<<py_[i]<<"   "<<0<<std::endl;
+			}
+		}
+		outfile.close();
+	}
+	void Free()
+	{
+		delete []px_;
+		delete []py_;
+		px_ = NULL;
+		py_ = NULL;
+	}
+
 	int point_count_;
 	double* px_;
 	double* py_;

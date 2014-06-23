@@ -115,27 +115,15 @@ struct NodeProperty
 static bool NotImportant(NodeProperty& center, NodeProperty& left, NodeProperty& right)
 {
 	CString leftstr = center.index_name_n_[0];
-	CString rightstr = center.index_name_n_[1];
+
 	if (leftstr != left.index_name_n_[0] && leftstr != left.index_name_n_[1]
 	&& leftstr != left.index_name_n_[2])
 	{
 		return false;
 	}
 
-	if (rightstr != left.index_name_n_[0] && rightstr != left.index_name_n_[1]
-	&& rightstr != left.index_name_n_[2])
-	{
-		return false;
-	}
-
 	if (leftstr != right.index_name_n_[0] && leftstr != right.index_name_n_[1]
 	&& leftstr != right.index_name_n_[2])
-	{
-		return false;
-	}
-
-	if (rightstr != right.index_name_n_[0] && rightstr != right.index_name_n_[1]
-	&& rightstr != right.index_name_n_[2])
 	{
 		return false;
 	}

@@ -1501,9 +1501,11 @@ void CRsDoc::OnOptimize()
 	auto path_ite = m_vecImagePath.begin();
 	std::fstream infile;
 	std::vector<PolygonExt2> polygons;
+	CString path;
 	while (path_ite != m_vecImagePath.end())
 	{
 		CString image_path = *path_ite;
+		path = image_path.Left(image_path.ReverseFind('\\')+1);
 		CString index_name = image_path.Right(image_path.GetLength()-image_path.ReverseFind('\\')-1);
 		index_name = index_name.Left(index_name.ReverseFind('.'));
 		CString rrlx_path = _T("D:\\output\\")+index_name+_T(".rrlx");
@@ -1605,6 +1607,71 @@ void CRsDoc::OnOptimize()
 		polygon_ite->DeletePoint();
 		polygon_ite->Output("D:\\output\\");
 		polygon_ite->Free();
+		++polygon_ite;
+	}
+
+	IImageX* pImage = NULL;
+	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&pImage);
+	pImage->Open(_bstr_t("D:\\out_dem.tif"), modeRead);
+
+	IImageX* tempImage = NULL;
+	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
+
+	const int blockArea = 50;
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int num = polygon_ite->point_count_;
+
+		CString image_path = path+polygon_ite->index_name_+_T(".tif");
+		tempImage->Open(image_path.AllocSysString(), modeRead);
+		RectFExt the_rect;
+		int nXSize = 0, nYSize = 0;
+		double lfCellSize = 0;
+		double lfXOrigin = 0, lfYOrigin = 0;
+
+		tempImage->GetCols(&nXSize);
+		tempImage->GetRows(&nYSize);
+		tempImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfCellSize);
+		tempImage->Close();
+
+		the_rect.left = lfXOrigin;
+		the_rect.right = lfXOrigin+nXSize*lfCellSize;
+		the_rect.bottom = lfYOrigin;
+		the_rect.top = lfYOrigin+nYSize*lfCellSize;
+
+		for (int i = 0; i < num; ++i)
+		{
+			RectFExt result_result = the_rect;
+			if (polygon_ite->np_[i].shared_by_ != 1)
+			{
+				for (int j = 0; j < polygon_ite->np_[i].shared_by_; ++i)
+				{
+					image_path = path+polygon_ite->np_[i].index_name_n_[j]+_T(".tif");
+					tempImage->Open(image_path.AllocSysString(), modeRead);
+					RectFExt temp_rect;
+
+					int nx = 0, ny = 0;
+					double cellsize = 0;
+					double xorigin = 0, yorigin = 0;
+
+					tempImage->GetCols(&nx);
+					tempImage->GetRows(&ny);
+					tempImage->GetGrdInfo(&xorigin, &yorigin, &cellsize);
+					tempImage->Close();
+
+					temp_rect.left = xorigin;
+					temp_rect.right = xorigin+nx*cellsize;
+					temp_rect.bottom = yorigin;
+					temp_rect.top = yorigin+ny*cellsize;
+
+					result_result = result_result.Intersected(temp_rect);
+				}
+
+			}
+		}
 		++polygon_ite;
 	}
 

@@ -1606,18 +1606,21 @@ void CRsDoc::OnOptimize()
 	{
 		polygon_ite->DeletePoint();
 		polygon_ite->Output("D:\\output\\");
-		polygon_ite->Free();
+		//polygon_ite->Free();
 		++polygon_ite;
 	}
 
 	IImageX* pImage = NULL;
 	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&pImage);
 	pImage->Open(_bstr_t("D:\\out_dem.tif"), modeRead);
+	double resolution = 0;
+	double temp;
+	pImage->GetGrdInfo(&temp, &temp, &resolution);
 
 	IImageX* tempImage = NULL;
 	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
 
-	const int blockArea = 50;
+	const int blockArea = 20;
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
@@ -1644,10 +1647,18 @@ void CRsDoc::OnOptimize()
 
 		for (int i = 0; i < num; ++i)
 		{
+			float fx = 0, fy = 0;
+			pImage->World2Image(polygon_ite->px_[i], polygon_ite->py_[i], &fx, &fy);
+			unsigned char height;
+			pImage->GetPixel((int)fy, (int)fx, &height);
+			if (height == 0)
+			{
+				continue;
+			}
 			RectFExt result_result = the_rect;
 			if (polygon_ite->np_[i].shared_by_ != 1)
 			{
-				for (int j = 0; j < polygon_ite->np_[i].shared_by_; ++i)
+				for (int j = 0; j < polygon_ite->np_[i].shared_by_-1; ++j)
 				{
 					image_path = path+polygon_ite->np_[i].index_name_n_[j]+_T(".tif");
 					tempImage->Open(image_path.AllocSysString(), modeRead);
@@ -1669,7 +1680,12 @@ void CRsDoc::OnOptimize()
 
 					result_result = result_result.Intersected(temp_rect);
 				}
-
+				RectFExt buf_rect;
+				buf_rect.left = polygon_ite->px_[i]-blockArea*resolution;
+				buf_rect.right = polygon_ite->px_[i]+blockArea*resolution;
+				buf_rect.bottom = polygon_ite->py_[i]-blockArea*resolution;
+				buf_rect.top = polygon_ite->py_[i]+blockArea*resolution;
+				buf_rect = buf_rect.Intersected(result_result);
 			}
 		}
 		++polygon_ite;

@@ -1647,8 +1647,10 @@ void CRsDoc::OnOptimize()
 
 		for (int i = 0; i < num; ++i)
 		{
+			double geox = px[i];
+			double geoy = py[i];
 			float fx = 0, fy = 0;
-			pImage->World2Image(polygon_ite->px_[i], polygon_ite->py_[i], &fx, &fy);
+			pImage->World2Image(geox, geoy, &fx, &fy);
 			unsigned char height;
 			pImage->GetPixel((int)fy, (int)fx, &height);
 			if (height == 0)
@@ -1686,6 +1688,21 @@ void CRsDoc::OnOptimize()
 				buf_rect.bottom = polygon_ite->py_[i]-blockArea*resolution;
 				buf_rect.top = polygon_ite->py_[i]+blockArea*resolution;
 				buf_rect = buf_rect.Intersected(result_result);
+				float buffer_left = 0, buffer_right = 0,
+					buffer_bottom = 0, buffer_top = 0;
+				pImage->World2Image(buf_rect.left, buf_rect.bottom,
+					&buffer_left, &buffer_top);
+				pImage->World2Image(buf_rect.right, buf_rect.top,
+					&buffer_right, &buffer_bottom);
+
+				int buffer_height = int(buffer_bottom-buffer_top);
+				int buffer_width = int(buffer_right-buffer_left);
+
+				unsigned char* buf = new unsigned char[buffer_height*buffer_width];
+				memset(buf, 0, buffer_height*buffer_width);
+				pImage->ReadImg(buffer_left, buffer_top, buffer_right, buffer_bottom,
+					buf, buffer_width, buffer_height, 1, 0, 0,
+					buffer_width, buffer_height, -1, 0);
 			}
 		}
 		++polygon_ite;

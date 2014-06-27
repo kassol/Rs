@@ -546,7 +546,7 @@ void CRsDoc::FillData(RectFExt rect)
 			{
 				recResult = rect.Intersected(*temIte);
 				m_pImage->Open((*PathNameIte).AllocSysString(), modeRead|modeAqlut);
-				float nSrcLeft = 0, nSrcRight = 0, nSrcTop = 0, nSrcBottom = 0;
+				int nSrcLeft = 0, nSrcRight = 0, nSrcTop = 0, nSrcBottom = 0;
 				m_pImage->World2Image(recResult.left, recResult.bottom, &nSrcLeft, &nSrcTop);
 				m_pImage->World2Image(recResult.right, recResult.top, &nSrcRight, &nSrcBottom);
 				
@@ -1649,7 +1649,7 @@ void CRsDoc::OnOptimize()
 		{
 			double geox = px[i];
 			double geoy = py[i];
-			float fx = 0, fy = 0;
+			int fx = 0, fy = 0;
 			pImage->World2Image(geox, geoy, &fx, &fy);
 			unsigned char height;
 			pImage->GetPixel((int)fy, (int)fx, &height);
@@ -1688,21 +1688,24 @@ void CRsDoc::OnOptimize()
 				buf_rect.bottom = polygon_ite->py_[i]-blockArea*resolution;
 				buf_rect.top = polygon_ite->py_[i]+blockArea*resolution;
 				buf_rect = buf_rect.Intersected(result_result);
-				float buffer_left = 0, buffer_right = 0,
+				int buffer_left = 0, buffer_right = 0,
 					buffer_bottom = 0, buffer_top = 0;
 				pImage->World2Image(buf_rect.left, buf_rect.bottom,
 					&buffer_left, &buffer_top);
 				pImage->World2Image(buf_rect.right, buf_rect.top,
 					&buffer_right, &buffer_bottom);
 
-				int buffer_height = int(buffer_bottom-buffer_top);
-				int buffer_width = int(buffer_right-buffer_left);
+				int buffer_height = buffer_bottom-buffer_top;
+				int buffer_width = buffer_right-buffer_left;
 
-				unsigned char* buf = new unsigned char[buffer_height*buffer_width];
-				memset(buf, 0, buffer_height*buffer_width);
+				unsigned short* buf = new unsigned short[buffer_height*buffer_width];
+				memset(buf, 0, buffer_height*buffer_width*sizeof(unsigned short));
 				pImage->ReadImg(buffer_left, buffer_top, buffer_right, buffer_bottom,
-					buf, buffer_width, buffer_height, 1, 0, 0,
+					(unsigned char*)buf, buffer_width, buffer_height, 1, 0, 0,
 					buffer_width, buffer_height, -1, 0);
+				int start_col = fx-buffer_left;
+				int start_row = fy-buffer_top;
+
 			}
 		}
 		++polygon_ite;

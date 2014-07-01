@@ -192,6 +192,20 @@ struct PolygonExt2
 		}
 		outfile.close();
 	}
+	void ResetPoint(CString index, double px, double py, double newx, double newy)
+	{
+		if (index == index_name_ || index == _T(""))
+		{
+			for (int i = 0; i < point_count_; ++i)
+			{
+				if (px_[i] == px && py_[i] == py)
+				{
+					px_[i] = newx;
+					py_[i] = newy;
+				}
+			}
+		}
+	}
 	void Free()
 	{
 		delete []px_;

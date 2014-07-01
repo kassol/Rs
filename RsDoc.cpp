@@ -1719,6 +1719,12 @@ void CRsDoc::OnOptimize()
 					if (buf[start_row*buffer_width+f] == 0)
 					{
 						isFind = true;
+						std::for_each(polygons.begin(), polygons.end(),
+							[&](PolygonExt2 & poly)
+						{
+							poly.ResetPoint("", geox, geoy,
+								geox-(start_col-f)*resolution, geoy);
+						});
 						break;
 					}
 				}
@@ -1729,6 +1735,12 @@ void CRsDoc::OnOptimize()
 						if (buf[start_row*buffer_width+f] == 0)
 						{
 							isFind = true;
+							std::for_each(polygons.begin(), polygons.end(),
+								[&](PolygonExt2 & poly)
+							{
+								poly.ResetPoint("", geox, geoy,
+									geox+(f-start_col)*resolution, geoy);
+							});
 							break;
 						}
 					}
@@ -1740,6 +1752,12 @@ void CRsDoc::OnOptimize()
 						if (buf[f*buffer_width+start_row] == 0)
 						{
 							isFind = true;
+							std::for_each(polygons.begin(), polygons.end(),
+								[&](PolygonExt2 & poly)
+							{
+								poly.ResetPoint("", geox, geoy,
+									geox, geoy-(start_row-f)*resolution);
+							});
 							break;
 						}
 					}
@@ -1751,12 +1769,27 @@ void CRsDoc::OnOptimize()
 						if (buf[f*buffer_width+start_row] == 0)
 						{
 							isFind = true;
+							std::for_each(polygons.begin(), polygons.end(),
+								[&](PolygonExt2 & poly)
+							{
+								poly.ResetPoint("", geox, geoy,
+									geox, geoy+(f-start_row)*resolution);
+							});
 							break;
 						}
 					}
 				}
 			}
 		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		//polygon_ite->DeletePoint();
+		polygon_ite->Output("D:\\output\\");
+		polygon_ite->Free();
 		++polygon_ite;
 	}
 

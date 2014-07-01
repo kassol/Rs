@@ -1683,11 +1683,15 @@ void CRsDoc::OnOptimize()
 					result_result = result_result.Intersected(temp_rect);
 				}
 				RectFExt buf_rect;
-				buf_rect.left = polygon_ite->px_[i]-blockArea*resolution;
-				buf_rect.right = polygon_ite->px_[i]+blockArea*resolution;
-				buf_rect.bottom = polygon_ite->py_[i]-blockArea*resolution;
-				buf_rect.top = polygon_ite->py_[i]+blockArea*resolution;
+				buf_rect.left = px[i]-blockArea*resolution;
+				buf_rect.right = px[i]+blockArea*resolution;
+				buf_rect.bottom = py[i]-blockArea*resolution;
+				buf_rect.top = py[i]+blockArea*resolution;
 				buf_rect = buf_rect.Intersected(result_result);
+				if (buf_rect.IsEmpty())
+				{
+					continue;
+				}
 				float buffer_left = 0, buffer_right = 0,
 					buffer_bottom = 0, buffer_top = 0;
 				pImage->World2Image(buf_rect.left, buf_rect.bottom,
@@ -1703,9 +1707,54 @@ void CRsDoc::OnOptimize()
 				pImage->ReadImg(buffer_left, buffer_top, buffer_right, buffer_bottom,
 					(unsigned char*)buf, buffer_width, buffer_height, 1, 0, 0,
 					buffer_width, buffer_height, -1, 0);
-				int start_col = fx-buffer_left;
-				int start_row = fy-buffer_top;
-
+				int start_col = int(fx-buffer_left+0.99999);
+				int start_row = int(fy-buffer_top+0.99999);
+				if (start_col >= buffer_width || start_row >= buffer_height)
+				{
+					continue;
+				}
+				bool isFind = false;
+				for (int f = start_col-1; f >= 0; --f)
+				{
+					if (buf[start_row*buffer_width+f] == 0)
+					{
+						isFind = true;
+						break;
+					}
+				}
+				if (!isFind)
+				{
+					for (int f = start_col+1; start_col < buffer_width; ++f)
+					{
+						if (buf[start_row*buffer_width+f] == 0)
+						{
+							isFind = true;
+							break;
+						}
+					}
+				}
+				if (!isFind)
+				{
+					for (int f = start_row-1; f >= 0; --f)
+					{
+						if (buf[f*buffer_width+start_row] == 0)
+						{
+							isFind = true;
+							break;
+						}
+					}
+				}
+				if (!isFind)
+				{
+					for (int f = start_row+1; f < buffer_height; ++f)
+					{
+						if (buf[f*buffer_width+start_row] == 0)
+						{
+							isFind = true;
+							break;
+						}
+					}
+				}
 			}
 		}
 		++polygon_ite;

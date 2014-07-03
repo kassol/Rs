@@ -1612,7 +1612,7 @@ void CRsDoc::OnOptimize()
 
 	IImageX* pImage = NULL;
 	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&pImage);
-	pImage->Open(_bstr_t("D:\\out_dem.tif"), modeRead);
+	pImage->Open(_bstr_t("D:\\out.tif"), modeRead);
 	double resolution = 0;
 	double temp;
 	pImage->GetGrdInfo(&temp, &temp, &resolution);
@@ -1620,7 +1620,7 @@ void CRsDoc::OnOptimize()
 	IImageX* tempImage = NULL;
 	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
 
-	const int blockArea = 20;
+	const int blockArea = 50;
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
@@ -1714,68 +1714,90 @@ void CRsDoc::OnOptimize()
 					continue;
 				}
 				bool isFind = false;
+				int ncount = 0;
+				const int count_limit = 7;
+
 				for (int f = start_col-1; f >= 0; --f)
 				{
 					if (buf[start_row*buffer_width+f] == 0)
 					{
-						isFind = true;
-						std::for_each(polygons.begin(), polygons.end(),
-							[&](PolygonExt2 & poly)
+						++ncount;
+						if (ncount >= count_limit)
 						{
-							poly.ResetPoint("", geox, geoy,
-								geox-(start_col-f)*resolution, geoy);
-						});
-						break;
+							isFind = true;
+							std::for_each(polygons.begin(), polygons.end(),
+								[&](PolygonExt2 & poly)
+							{
+								poly.ResetPoint("", geox, geoy,
+									geox-(start_col-f)*resolution, geoy);
+							});
+							break;
+						}
 					}
 				}
 				if (!isFind)
 				{
+					ncount = 0;
 					for (int f = start_col+1; start_col < buffer_width; ++f)
 					{
 						if (buf[start_row*buffer_width+f] == 0)
 						{
-							isFind = true;
-							std::for_each(polygons.begin(), polygons.end(),
-								[&](PolygonExt2 & poly)
+							++ncount;
+							if (ncount >= count_limit)
 							{
-								poly.ResetPoint("", geox, geoy,
-									geox+(f-start_col)*resolution, geoy);
-							});
-							break;
+								isFind = true;
+								std::for_each(polygons.begin(), polygons.end(),
+									[&](PolygonExt2 & poly)
+								{
+									poly.ResetPoint("", geox, geoy,
+										geox+(f-start_col)*resolution, geoy);
+								});
+								break;
+							}
 						}
 					}
 				}
 				if (!isFind)
 				{
+					ncount = 0;
 					for (int f = start_row-1; f >= 0; --f)
 					{
 						if (buf[f*buffer_width+start_row] == 0)
 						{
-							isFind = true;
-							std::for_each(polygons.begin(), polygons.end(),
-								[&](PolygonExt2 & poly)
+							++ncount;
+							if (ncount >= count_limit)
 							{
-								poly.ResetPoint("", geox, geoy,
-									geox, geoy-(start_row-f)*resolution);
-							});
-							break;
+								isFind = true;
+								std::for_each(polygons.begin(), polygons.end(),
+									[&](PolygonExt2 & poly)
+								{
+									poly.ResetPoint("", geox, geoy,
+										geox, geoy-(start_row-f)*resolution);
+								});
+								break;
+							}
 						}
 					}
 				}
 				if (!isFind)
 				{
+					ncount = 0;
 					for (int f = start_row+1; f < buffer_height; ++f)
 					{
 						if (buf[f*buffer_width+start_row] == 0)
 						{
-							isFind = true;
-							std::for_each(polygons.begin(), polygons.end(),
-								[&](PolygonExt2 & poly)
+							++ncount;
+							if (ncount >= count_limit)
 							{
-								poly.ResetPoint("", geox, geoy,
-									geox, geoy+(f-start_row)*resolution);
-							});
-							break;
+								isFind = true;
+								std::for_each(polygons.begin(), polygons.end(),
+									[&](PolygonExt2 & poly)
+								{
+									poly.ResetPoint("", geox, geoy,
+										geox, geoy+(f-start_row)*resolution);
+								});
+								break;
+							}
 						}
 					}
 				}

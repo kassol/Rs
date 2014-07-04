@@ -65,6 +65,7 @@ public:
 	BOOL SetupPixelformat();
 	void RenderRaster();
 	void RenderVector();
+	void RenderPolygon();
 
 // 生成的消息映射函数
 protected:

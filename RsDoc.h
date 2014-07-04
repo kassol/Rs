@@ -63,6 +63,28 @@ struct RectFExt
 	double bottom;
 };
 
+struct PolygonExt
+{
+	PolygonExt(int point_count, double* px, double* py)
+		: point_count_(point_count)
+		, px_(px)
+		, py_(py)
+	{
+
+	}
+	void Free()
+	{
+		point_count_ = 0;
+		delete []px_;
+		px_ = NULL;
+		py_ = NULL;
+	}
+
+	int point_count_;
+	double* px_;
+	double* py_;
+};
+
 
 class CRsDoc : public CDocument
 {
@@ -146,6 +168,7 @@ private:
 
 public:
 	std::vector<RectFExt> m_vecImageRect;
+	std::vector<PolygonExt> m_vecMosaicLine;
 
 public:
 	void GetBufSize(int &nBufWidth, int &nBufHeight);
@@ -171,6 +194,9 @@ public:
 	int* GetVectorState();
 	void GetShapeIterator(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum, std::vector<int>::iterator& itePolyNum);
 	void GetShapeIterEnd(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum, std::vector<int>::iterator& itePolyNum);
+	std::vector<PolygonExt>& GetPolygonVec();
+	void ParsePolygon();
+
 
 // 生成的消息映射函数
 protected:
@@ -185,4 +211,6 @@ public:
 	afx_msg void OnBandcomb();
 	afx_msg void OnAddraster();
 	afx_msg void OnAddvector();
+	afx_msg void OnGenerateline();
+	afx_msg void OnDxf2dsm();
 };

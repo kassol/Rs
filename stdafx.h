@@ -50,6 +50,7 @@
 
 
 #import "ImageX.tlb" no_namespace, named_guids
+#import "CoMosaic.tlb" no_namespace, named_guids
 
 #include <vector>
 
@@ -58,6 +59,17 @@
 #include "CadLib.h"
 
 extern GLuint g_tex;
+
+//#include <vld.h>
+
+#define _CRTDBG_MAP_ALLOC
+#include <crtdbg.h>
+
+
+#define _SnapSame(x1, x2, lfSnap)		(0==lfSnap?x1==x2:fabs(x1-x2)<lfSnap)
+#define _SnapLarge(x1, x2, lfSnap)	    (x1>x2-lfSnap)
+#define _SnapLarge2(x1, x2, lfSnap)	    (x1>x2+lfSnap)
+int PtInRegionEx(double x, double y, double* pX, double* pY, int nSum, double lfSnap);
 
 
 #ifdef _UNICODE

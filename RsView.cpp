@@ -13,7 +13,6 @@
 //
 
 #include "stdafx.h"
-#include <vld.h>
 // SHARED_HANDLERS 可以在实现预览、缩略图和搜索筛选器句柄的
 // ATL 项目中进行定义，并允许与该项目共享文档代码。
 #ifndef SHARED_HANDLERS
@@ -126,6 +125,7 @@ void CRsView::OnDraw(CDC* /*pDC*/)
 
 	RenderRaster();
 	RenderVector();
+	RenderPolygon();
 
 	SwapBuffers(m_pDC->GetSafeHdc());
 
@@ -573,6 +573,53 @@ void CRsView::RenderVector()
 	}
 }
 
+void CRsView::RenderPolygon()
+{
+	CRsDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	long nRealOriginx = 0, nRealOriginy = 0;
+	pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
+
+	auto poly = pDoc->GetPolygonVec();
+	if (poly.empty())
+	{
+		return;
+	}
+	auto poly_ite = poly.begin();
+	
+	long x = 0, y = 0;
+	while(poly_ite != poly.end())
+	{
+		glColor3f(0, 0, 1.0);
+		for (int i = 0; i < poly_ite->point_count_; ++i)
+		{
+			pDoc->Geo2Screen(poly_ite->px_[i], poly_ite->py_[i], x, y);
+			x += nRealOriginx;
+			y += nRealOriginy;
+			glBegin(GL_LINE_LOOP);
+			glVertex2i(x-5, y+5);
+			glVertex2i(x-5, y-5);
+			glVertex2i(x+5, y-5);
+			glVertex2i(x+5, y+5);
+			glEnd();
+		}
+		glColor3f(0, 1.0, 0);
+		glBegin(GL_LINE_LOOP);
+		for (int i = 0; i < poly_ite->point_count_; ++i)
+		{
+			pDoc->Geo2Screen(poly_ite->px_[i], poly_ite->py_[i], x, y);
+			x += nRealOriginx;
+			y += nRealOriginy;
+			glVertex2i(x, y);
+		}
+		glEnd();
+		++poly_ite;
+	}
+}
+
 
 // CRsView 消息处理程序
 
@@ -689,7 +736,6 @@ BOOL CRsView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 
 void CRsView::OnShowEdge()
 {
-	// TODO: Add your command handler code here
 	m_bShowEdge = !m_bShowEdge;
 	Invalidate(TRUE);
 }

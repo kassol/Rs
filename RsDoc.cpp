@@ -13,7 +13,6 @@
 //
 
 #include "stdafx.h"
-#include <vld.h>
 // SHARED_HANDLERS 可以在实现预览、缩略图和搜索筛选器句柄的
 // ATL 项目中进行定义，并允许与该项目共享文档代码。
 #ifndef SHARED_HANDLERS
@@ -26,6 +25,8 @@
 #include <propkey.h>
 #include "RasterPane.h"
 #include "VectorsPane.h"
+#include <algorithm>
+#include <fstream>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -40,6 +41,8 @@ BEGIN_MESSAGE_MAP(CRsDoc, CDocument)
 	ON_COMMAND(ID_BANDCOMB, &CRsDoc::OnBandcomb)
 	ON_COMMAND(ID_ADDRASTER, &CRsDoc::OnAddraster)
 	ON_COMMAND(ID_ADDVECTOR, &CRsDoc::OnAddvector)
+	ON_COMMAND(ID_GENERATElINE, &CRsDoc::OnGenerateline)
+	ON_COMMAND(ID_DXF2DSM, &CRsDoc::OnDxf2dsm)
 END_MESSAGE_MAP()
 
 
@@ -87,7 +90,7 @@ CRsDoc::~CRsDoc()
 {
 	if (m_pImage != NULL)
 	{
-		//m_pImage->Close();
+		m_pImage->Close();
 		m_pImage->Release();
 		m_pImage = NULL;
 	}
@@ -292,6 +295,7 @@ void CRsDoc::OnFileOpen()
 			double lfXOrigin, lfYOrigin, lfResolution;
 			m_pImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfResolution);
 			m_pImage->Close();
+			_CrtDumpMemoryLeaks();
 			if (m_nBandNum == 1)
 			{
 				m_bIsGrey = TRUE;
@@ -588,12 +592,14 @@ void CRsDoc::FillData(RectFExt rect)
 				}
 				else
 				{
+// 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+// 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nRed, 0);
+// 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+// 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nGreen, 1);
+// 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+// 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nBlue, 2);
 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nRed, 0);
-					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nGreen, 1);
-					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nBlue, 2);
+						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, -1, 0);
 				}
 				m_pImage->Close();
 			}
@@ -918,7 +924,6 @@ void CRsDoc::OnAddraster()
 	m_pImage->GetSupExts(szFileFilter, modeRead);
 
 	CString strFileFilter(szFileFilter);
-	//AfxMessageBox(strFileFilter);
 	delete []szFileFilter;
 	szFileFilter = NULL;
 
@@ -932,6 +937,8 @@ void CRsDoc::OnAddraster()
 	memset(fdlg.m_ofn.lpstrFile, 0, _MAX_PATH*MIN_FILE_NUMBER);
 	fdlg.m_ofn.nMaxFile = _MAX_PATH*MIN_FILE_NUMBER;
 
+
+	CString strAllPath;
 	if (IDOK == fdlg.DoModal())
 	{
 		m_recBac.Free();
@@ -1092,6 +1099,44 @@ void CRsDoc::OnAddraster()
 	delete []fdlg.m_ofn.lpstrFile;
 }
 
+void CRsDoc::ParsePolygon()
+{
+	if (!m_vecMosaicLine.empty())
+	{
+		std::for_each(m_vecMosaicLine.begin(), m_vecMosaicLine.end(), [](PolygonExt& poly)
+		{
+			poly.Free();
+		});
+		m_vecMosaicLine.clear();
+	}
+
+	CString strOutPath = _T("D:\\output\\");
+	std::for_each(m_vecImagePath.begin(), m_vecImagePath.end(), [&](CString imagepath)
+	{
+		CString rrlx = strOutPath+imagepath.Right(
+			imagepath.GetLength()-imagepath.ReverseFind('\\')-1);
+		rrlx = rrlx.Left(rrlx.ReverseFind('.'))+_T(".rrlx");
+		std::fstream infile;
+		infile.open(rrlx.GetBuffer(0), std::ios::in);
+		int point_count = 0;
+		infile>>point_count;
+		double* px = new double[point_count];
+		memset(px, 0, sizeof(double)*point_count);
+		double* py = new double[point_count];
+		memset(py, 0, sizeof(double)*point_count);
+		int temp = 0;
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i]>>temp;
+		}
+		m_vecMosaicLine.push_back(PolygonExt(point_count, px, py));
+	});
+}
+
+std::vector<PolygonExt>& CRsDoc::GetPolygonVec()
+{
+	return m_vecMosaicLine;
+}
 
 void CRsDoc::OnAddvector()
 {
@@ -1206,4 +1251,245 @@ void CRsDoc::GetShapeIterEnd(std::vector<double*>::iterator& iteX, std::vector<d
 	iteY = m_vecY.end();
 	iteNum = m_vecPointNum.end();
 	itePolyNum = m_vecPolygonNum.end();
+}
+
+void CRsDoc::OnGenerateline()
+{
+	CString strAllPath;
+	std::for_each(m_vecImagePath.begin(), m_vecImagePath.end(), [&](CString ImagePath)
+	{
+		strAllPath += ImagePath;
+		strAllPath += ";";
+	});
+
+	strAllPath = strAllPath.Left(strAllPath.GetLength()-1);
+
+	IMosaic* pMosaic = NULL;
+	HRESULT hr = CoCreateInstance(CLSID_Mosaic, NULL, CLSCTX_ALL, IID_IMosaic, (void**)&pMosaic);
+	if (FAILED(hr))
+	{
+		return;
+	}
+	int novaliddomnum;
+	int *index = NULL;
+	pMosaic->InitialOrthoProMosaicLines(strAllPath.AllocSysString(), _bstr_t("D:\\output\\"), &novaliddomnum, index);
+	ParsePolygon();
+	UpdateAllViews(NULL);
+}
+
+
+void CRsDoc::OnDxf2dsm()
+{
+	CString strFileFilter = _T("DXF(*.dxf)|*.dxf||");
+	CFileDialog fdlg(TRUE, NULL, NULL, 
+			OFN_ENABLESIZING | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY,
+		strFileFilter, NULL, 0, TRUE);
+	CString strDxf;
+	if (IDOK == fdlg.DoModal())
+	{
+		strDxf = fdlg.GetPathName();
+
+		if (m_dxffile.Create() && m_dxffile.LoadDXFFile(strDxf) == TRUE)
+		{
+			ENTITYHEADER EntityHeader;
+			char	 EntityData[4096];
+			OBJHANDLE hEntity;
+			hEntity = m_dxffile.FindEntity(FIND_FIRST, &EntityHeader, EntityData, NULL);
+			int nPolygonCount = 0;
+			std::vector<int> vecPointNum;
+			std::vector<double*> vecX;
+			std::vector<double*> vecY;
+			std::vector<double*>vecEXx;
+			std::vector<double*>vecExy;
+
+			double lfMinx = 0, lfMiny = 0, lfMaxx = 0, lfMaxy = 0;
+
+			while (hEntity)
+			{
+				switch(EntityHeader.EntityType)
+				{
+				case ENT_POLYLINE:
+				case ENT_LINE3D:
+					{
+						PENTPOLYLINE pPolyline = (PENTPOLYLINE)EntityData;
+						int nVertexNum = pPolyline->nVertex;
+						if (nVertexNum > 2)
+						{
+							double *pX = new double[pPolyline->nVertex];
+							double *pY = new double[pPolyline->nVertex];
+							vecPointNum.push_back(pPolyline->nVertex);
+
+							memset(pX, 0, pPolyline->nVertex*sizeof(double));
+							memset(pY, 0, pPolyline->nVertex*sizeof(double));
+
+							double minx = 0, miny = 0, maxx = 0, maxy = 0;
+							double *ppX = new double[5];
+							double *ppY = new double[5];
+							for (int nIndex = 0; nIndex < pPolyline->nVertex; ++ nIndex)
+							{
+								pX[nIndex] = pPolyline->pVertex[nIndex].Point.x;
+								pY[nIndex] = pPolyline->pVertex[nIndex].Point.y;
+								
+
+
+								if (lfMinx == 0 || lfMinx > pX[nIndex])
+								{
+									lfMinx = pX[nIndex];
+								}
+								if (lfMiny == 0 || lfMiny > pY[nIndex])
+								{
+									lfMiny = pY[nIndex];
+								}
+								if (lfMaxx == 0 || lfMaxx < pX[nIndex])
+								{
+									lfMaxx = pX[nIndex];
+								}
+								if (lfMaxy == 0 || lfMaxy < pY[nIndex])
+								{
+									lfMaxy = pY[nIndex];
+								}
+
+								if (minx == 0 || minx > pX[nIndex])
+								{
+									minx = pX[nIndex];
+								}
+								if (miny == 0 || miny > pY[nIndex])
+								{
+									miny = pY[nIndex];
+								}
+								if (maxx == 0 || maxx < pX[nIndex])
+								{
+									maxx = pX[nIndex];
+								}
+								if (maxy == 0 || maxy < pY[nIndex])
+								{
+									maxy = pY[nIndex];
+								}
+							}
+
+							ppX[0] = minx;
+							ppX[1] = minx;
+							ppX[2] = maxx;
+							ppX[3] = maxx;
+							ppX[4] = minx;
+							ppY[0] = maxy;
+							ppY[1] = miny;
+							ppY[2] = miny;
+							ppY[3] = maxy;
+							ppY[4] = maxy;
+
+							vecEXx.push_back(ppX);
+							vecExy.push_back(ppY);
+
+							vecX.push_back(pX);
+							vecY.push_back(pY);
+							++nPolygonCount;
+						}
+					}
+				}
+				hEntity = m_dxffile.FindEntity(FIND_NEXT, &EntityHeader, EntityData, NULL);
+			}
+			m_dxffile.Destroy();
+
+			
+			double cellsize = 2.0;
+
+			double lfXOrigin = int(lfMinx/cellsize)*cellsize;
+			double lfYOrigin = int(lfMiny/cellsize)*cellsize;
+			double lfXEnd = int(lfMaxx/cellsize+1)*cellsize;
+			double lfYEnd = int(lfMaxy/cellsize+1)*cellsize;
+			int nXSize = int((lfXEnd-lfXOrigin)/cellsize);
+			int nYSize = int((lfYEnd-lfYOrigin)/cellsize);
+
+			std::fstream out;
+			out<<std::fixed;
+			out.open("D:\\out_2m.dem", std::ios::out);
+			out<<"NSDTF-DEM\n";
+			out<<"1.0\n";
+			out<<"M\n";
+			out<<"0.000000\n";
+			out<<"0.000000\n";
+			out<<lfXOrigin<<"\n";
+			out<<lfYEnd<<"\n";
+			out<<cellsize<<"\n";
+			out<<cellsize<<"\n";
+			out<<nYSize<<"\n";
+			out<<nXSize<<"\n";
+			out<<"1\n";
+
+			float high = 100.0;
+			float low = 0.0;
+
+			float* pbuf = new float[nXSize];
+
+			for (int y = 0; y < nYSize; ++y)
+			{
+				memset(pbuf, 0, nXSize*sizeof(float));
+				for (int x = 0; x < nXSize; ++x)
+				{
+					auto itex = vecX.begin();
+					auto itey = vecY.begin();
+					auto itenum = vecPointNum.begin();
+					auto itexx = vecEXx.begin();
+					auto iteyy = vecExy.begin();
+					bool isIn = false;
+
+					while(itex != vecX.end())
+					{
+						isIn = isIn || (-1 != PtInRegionEx(lfXOrigin+x*cellsize, lfYEnd-y*cellsize, *itexx, *iteyy, 5, 0.000001) &&
+							-1 != PtInRegionEx(lfXOrigin+x*cellsize, lfYEnd-y*cellsize, *itex, *itey, *itenum, 0.000001));
+						if (isIn)
+						{
+							break;
+						}
+						++itex;
+						++itey;
+						++itenum;
+						++itexx;
+						++iteyy;
+					}
+					if (isIn)
+					{
+						pbuf[x] = high;
+					}
+				}
+
+				for (int i = 0; i < nXSize-1; ++i)
+				{
+					out<<pbuf[i]<<" ";
+				}
+				out<<pbuf[nXSize-1]<<"\n";
+			}
+
+			delete []pbuf;
+			pbuf = NULL;
+			out<<"\n";
+
+			out.close();
+			auto itex = vecX.begin();
+			auto itey = vecY.begin();
+			auto itexx = vecEXx.begin();
+			auto iteyy = vecExy.begin();
+			while(itex != vecX.end())
+			{
+				delete [](*itex);
+				delete [](*itey);
+				delete [](*itexx);
+				delete [](*iteyy);
+				++itex;
+				++itey;
+				++itexx;
+				++iteyy;
+			}
+			vecX.clear();
+			vecY.clear();
+			vecPointNum.clear();
+		}
+		else
+		{
+			CString temp = _T("加载dxf失败!");
+			AfxMessageBox(temp);
+			return;
+		}
+	}
 }

@@ -44,6 +44,7 @@ BEGIN_MESSAGE_MAP(CRsDoc, CDocument)
 	ON_COMMAND(ID_GENERATElINE, &CRsDoc::OnGenerateline)
 	ON_COMMAND(ID_DXF2DSM, &CRsDoc::OnDxf2dsm)
 	ON_COMMAND(ID_OPTIMIZE, &CRsDoc::OnOptimize)
+	ON_COMMAND(ID_EFFECTPOLY, &CRsDoc::OnEffectpoly)
 END_MESSAGE_MAP()
 
 
@@ -252,7 +253,7 @@ void CRsDoc::OnFileOpen()
 		OFN_ALLOWMULTISELECT | OFN_ENABLESIZING | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY,
 		strFileFilter, NULL, 0, TRUE);
 
-	const int MIN_FILE_NUMBER = 10;
+	const int MIN_FILE_NUMBER = 80000;
 	fdlg.m_ofn.lpstrFile = new TCHAR[_MAX_PATH*MIN_FILE_NUMBER];
 	memset(fdlg.m_ofn.lpstrFile, 0, _MAX_PATH*MIN_FILE_NUMBER);
 	fdlg.m_ofn.nMaxFile = _MAX_PATH*MIN_FILE_NUMBER;
@@ -933,7 +934,7 @@ void CRsDoc::OnAddraster()
 		OFN_ALLOWMULTISELECT | OFN_ENABLESIZING | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY,
 		strFileFilter, NULL, 0, TRUE);
 
-	const int MIN_FILE_NUMBER = 10;
+	const int MIN_FILE_NUMBER = 80000;
 	fdlg.m_ofn.lpstrFile = new TCHAR[_MAX_PATH*MIN_FILE_NUMBER];
 	memset(fdlg.m_ofn.lpstrFile, 0, _MAX_PATH*MIN_FILE_NUMBER);
 	fdlg.m_ofn.nMaxFile = _MAX_PATH*MIN_FILE_NUMBER;
@@ -1134,9 +1135,45 @@ void CRsDoc::ParsePolygon()
 	});
 }
 
+void CRsDoc::ParseEffective()
+{
+	if (!m_vecEffectivePoly.empty())
+	{
+		std::for_each(m_vecEffectivePoly.begin(), m_vecEffectivePoly.end(),
+			[&](PolygonExt& poly)
+		{
+			poly.Free();
+		});
+		m_vecEffectivePoly.clear();
+	}
+	std::for_each(m_vecImagePath.begin(), m_vecImagePath.end(),
+		[&](CString imagepath)
+	{
+		CString ep = imagepath+_T(".ep");
+		std::fstream infile;
+		infile.open(ep.GetBuffer(0), std::ios::in);
+		int point_count = 0;
+		infile>>point_count;
+		double* px = new double[point_count];
+		memset(px, 0, sizeof(double)*point_count);
+		double* py = new double[point_count];
+		memset(py, 0, sizeof(double)*point_count);
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i];
+		}
+		m_vecEffectivePoly.push_back(PolygonExt(point_count, px, py));
+	});
+}
+
 std::vector<PolygonExt>& CRsDoc::GetPolygonVec()
 {
 	return m_vecMosaicLine;
+}
+
+std::vector<PolygonExt>& CRsDoc::GetEffectivepoly()
+{
+	return m_vecEffectivePoly;
 }
 
 void CRsDoc::OnAddvector()
@@ -1816,5 +1853,242 @@ void CRsDoc::OnOptimize()
 	}
 
 	ParsePolygon();
+	UpdateAllViews(NULL);
+}
+
+double GetDistance(double pointx, double pointy, double linestartx, double linestarty, 
+	double lineendx, double lineendy)
+{
+	double a = linestarty-lineendy;
+	double b = lineendx-linestartx;
+	double c = linestartx*lineendy-lineendx*linestarty;
+
+	return fabs(a*pointx+b*pointy+c)/(sqrt(a*a+b*b));
+}
+
+BOOL OutputEffectivePoly(CString strAllDomPath, int BG_COLOR = 0)
+{
+	std::vector<CString> vecImagePath;
+	while (1)
+	{
+		int nIndex = strAllDomPath.ReverseFind(';');
+		CString strDomPath("");
+		if (nIndex == -1)
+		{
+			strDomPath = strAllDomPath;
+			vecImagePath.push_back(strDomPath);
+			break;
+		}
+		else
+		{
+			strDomPath = strAllDomPath.Right(strAllDomPath.GetLength()-nIndex-1);
+			vecImagePath.push_back(strDomPath);
+			strAllDomPath = strAllDomPath.Left(nIndex);
+		}
+	}
+
+	std::vector<CString>::const_iterator image_path = vecImagePath.begin();
+
+	IImageX* pImage = NULL;
+	HRESULT hRes = CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&pImage);
+	if (FAILED(hRes))
+	{
+		return FALSE;
+	}
+
+	while (image_path != vecImagePath.end())
+	{
+		std::vector<PointEx> point_left;
+		std::vector<PointEx> point_right;
+		hRes = pImage->Open(image_path->AllocSysString(), modeRead);
+		if (hRes == S_FALSE)
+		{
+			if (pImage)
+			{
+				pImage->Release();
+				pImage = NULL;
+			}
+			vecImagePath.clear();
+			return FALSE;
+		}
+
+		int nXSize = 0, nYSize = 0, nBandNum = 0;
+		double lfXOrigin = 0, lfYOrigin = 0, lfCellSize = 0;
+		int BPB = 0;
+		pImage->GetCols(&nXSize);
+		pImage->GetRows(&nYSize);
+		pImage->GetBandNum(&nBandNum);
+		pImage->GetBPB(&BPB);
+		pImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfCellSize);
+
+		unsigned char* buffer = new unsigned char[nXSize*nBandNum*BPB];
+
+		for (int y = 0; y < nYSize; y += 5)
+		{
+			memset(buffer, BG_COLOR, nXSize*nBandNum*BPB);
+			pImage->ReadImg(0, y, nXSize, y+1, buffer, nXSize, 1, nBandNum,
+				0, 0, nXSize, 1, -1, 0);
+			for (int x = 0; x < nXSize; ++x)
+			{
+				int result = 0;
+				if (BPB == 1)
+				{
+					for (int n = 0; n < nBandNum; ++n)
+					{
+						result += buffer[x*nBandNum+n];
+					}
+				}
+				else if (BPB == 2)
+				{
+					unsigned short* data = (unsigned short*)buffer;
+					for (int n = 0; n < nBandNum; ++n)
+					{
+						result += data[x*nBandNum+n];
+					}
+				}
+
+				if (result != nBandNum*BG_COLOR)
+				{
+					point_left.push_back(PointEx(x, y));
+					break;
+				}
+			}
+			for(int x = nXSize-1; x >= 0; --x)
+			{
+				int result = 0;
+				if (BPB == 1)
+				{
+					for (int n = 0; n < nBandNum; ++n)
+					{
+						result += buffer[x*nBandNum+n];
+					}
+				}
+				else if (BPB == 2)
+				{
+					unsigned short* data = (unsigned short*)buffer;
+					for (int n = 0; n < nBandNum; ++n)
+					{
+						result += data[x*nBandNum+n];
+					}
+				}
+
+				if (result != nBandNum*BG_COLOR)
+				{
+					point_right.push_back(PointEx(x, y));
+					break;
+				}
+			}
+		}
+		delete []buffer;
+		buffer = NULL;
+		pImage->Close();
+
+		int point_count = point_left.size();
+		double* px = new double[point_count];
+		double* py = new double[point_count];
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			px[i] = point_left[i].x;
+			py[i] = point_left[i].y;
+		}
+
+		point_left.clear();
+
+		double limit = 0.8;
+		point_left.push_back(PointEx(px[0], py[0]));
+		for (int j = 1, k = 2; k < point_count;)
+		{
+			if(GetDistance(px[j], py[j], point_left.back().x, point_left.back().y,
+				px[k], py[k])-limit < 0.000001)
+			{
+				++j;
+				++k;
+			}
+			else
+			{
+				point_left.push_back(PointEx(px[j], py[j]));
+				++j;
+				++k;
+			}
+		}
+		point_left.push_back(PointEx(px[point_count-1], py[point_count-1]));
+		delete []px;
+		px = NULL;
+		delete []py;
+		py = NULL;
+
+		point_count = point_right.size();
+		px = new double[point_count];
+		py = new double[point_count];
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			px[i] = point_right[i].x;
+			py[i] = point_right[i].y;
+		}
+
+		point_right.clear();
+
+		point_right.push_back(PointEx(px[0], py[0]));
+		for (int j = 1, k = 2; k < point_count;)
+		{
+			if(GetDistance(px[j], py[j], point_right.back().x, point_right.back().y,
+				px[k], py[k])-limit < 0.000001)
+			{
+				++j;
+				++k;
+			}
+			else
+			{
+				point_right.push_back(PointEx(px[j], py[j]));
+				++j;
+				++k;
+			}
+		}
+		point_right.push_back(PointEx(px[point_count-1], py[point_count-1]));
+		delete []px;
+		px = NULL;
+		delete []py;
+		py = NULL;
+
+		std::fstream outfile;
+		CString point_path = (*image_path)+_T(".ep");
+		outfile.open(point_path.GetBuffer(0), std::ios::out);
+		outfile<<std::fixed;
+		outfile<<point_left.size()+point_right.size()<<"\n";
+		for (int i = 0; i < point_left.size(); ++i)
+		{
+			outfile<<point_left[i].x*lfCellSize+lfXOrigin<<"   "<<point_left[i].y*lfCellSize+lfYOrigin<<"\n";
+		}
+
+		for (int i = point_right.size()-1; i >= 0; --i)
+		{
+			outfile<<point_right[i].x*lfCellSize+lfXOrigin<<"   "<<point_right[i].y*lfCellSize+lfYOrigin<<"\n";
+		}
+		outfile.close();
+
+		++image_path;
+	}
+	vecImagePath.clear();
+	pImage->Release();
+
+	return TRUE;
+}
+
+
+void CRsDoc::OnEffectpoly()
+{
+	CString strAllDomPath;
+	auto ite = m_vecImagePath.begin();
+	while(ite != m_vecImagePath.end())
+	{
+		strAllDomPath = strAllDomPath+*ite+_T(";");
+		++ite;
+	}
+	strAllDomPath = strAllDomPath.Left(strAllDomPath.GetLength()-1);
+	OutputEffectivePoly(strAllDomPath, 255);
+
+	ParseEffective();
 	UpdateAllViews(NULL);
 }

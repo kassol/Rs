@@ -221,6 +221,15 @@ struct PolygonExt2
 	std::vector<NodeProperty> np_;
 };
 
+struct PointEx{
+	PointEx(){x = 0; y = 0;}
+	PointEx(int xpos, int ypos):x(xpos), y(ypos){}
+	int x;
+	int y;
+
+	bool operator==(const PointEx& pt)const {return (x == pt.x && y == pt.y);}
+	void operator=(const PointEx& pt){x = pt.x; y = pt.y;}
+};
 
 class CRsDoc : public CDocument
 {
@@ -305,6 +314,7 @@ private:
 public:
 	std::vector<RectFExt> m_vecImageRect;
 	std::vector<PolygonExt> m_vecMosaicLine;
+	std::vector<PolygonExt> m_vecEffectivePoly;
 
 public:
 	void GetBufSize(int &nBufWidth, int &nBufHeight);
@@ -331,7 +341,9 @@ public:
 	void GetShapeIterator(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum, std::vector<int>::iterator& itePolyNum);
 	void GetShapeIterEnd(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum, std::vector<int>::iterator& itePolyNum);
 	std::vector<PolygonExt>& GetPolygonVec();
+	std::vector<PolygonExt>& GetEffectivepoly();
 	void ParsePolygon();
+	void ParseEffective();
 
 
 // 生成的消息映射函数
@@ -350,4 +362,5 @@ public:
 	afx_msg void OnGenerateline();
 	afx_msg void OnDxf2dsm();
 	afx_msg void OnOptimize();
+	afx_msg void OnEffectpoly();
 };

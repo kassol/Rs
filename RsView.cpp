@@ -126,6 +126,7 @@ void CRsView::OnDraw(CDC* /*pDC*/)
 	RenderRaster();
 	RenderVector();
 	RenderPolygon();
+	RenderEffective();
 
 	SwapBuffers(m_pDC->GetSafeHdc());
 
@@ -590,6 +591,53 @@ void CRsView::RenderPolygon()
 	}
 	auto poly_ite = poly.begin();
 	
+	long x = 0, y = 0;
+	while(poly_ite != poly.end())
+	{
+		glColor3f(0, 0, 1.0);
+		for (int i = 0; i < poly_ite->point_count_; ++i)
+		{
+			pDoc->Geo2Screen(poly_ite->px_[i], poly_ite->py_[i], x, y);
+			x += nRealOriginx;
+			y += nRealOriginy;
+			glBegin(GL_LINE_LOOP);
+			glVertex2i(x-5, y+5);
+			glVertex2i(x-5, y-5);
+			glVertex2i(x+5, y-5);
+			glVertex2i(x+5, y+5);
+			glEnd();
+		}
+		glColor3f(0, 1.0, 0);
+		glBegin(GL_LINE_LOOP);
+		for (int i = 0; i < poly_ite->point_count_; ++i)
+		{
+			pDoc->Geo2Screen(poly_ite->px_[i], poly_ite->py_[i], x, y);
+			x += nRealOriginx;
+			y += nRealOriginy;
+			glVertex2i(x, y);
+		}
+		glEnd();
+		++poly_ite;
+	}
+}
+
+void CRsView::RenderEffective()
+{
+	CRsDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
+
+	long nRealOriginx = 0, nRealOriginy = 0;
+	pDoc->GetRealOrigin(nRealOriginx, nRealOriginy);
+
+	auto poly = pDoc->GetEffectivepoly();
+	if (poly.empty())
+	{
+		return;
+	}
+	auto poly_ite = poly.begin();
+
 	long x = 0, y = 0;
 	while(poly_ite != poly.end())
 	{

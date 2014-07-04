@@ -363,4 +363,5 @@ public:
 	afx_msg void OnDxf2dsm();
 	afx_msg void OnOptimize();
 	afx_msg void OnEffectpoly();
+	afx_msg void OnOptimize2();
 };

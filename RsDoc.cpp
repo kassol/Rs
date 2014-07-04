@@ -45,6 +45,7 @@ BEGIN_MESSAGE_MAP(CRsDoc, CDocument)
 	ON_COMMAND(ID_DXF2DSM, &CRsDoc::OnDxf2dsm)
 	ON_COMMAND(ID_OPTIMIZE, &CRsDoc::OnOptimize)
 	ON_COMMAND(ID_EFFECTPOLY, &CRsDoc::OnEffectpoly)
+	ON_COMMAND(ID_OPTIMIZE2, &CRsDoc::OnOptimize2)
 END_MESSAGE_MAP()
 
 
@@ -1923,7 +1924,7 @@ BOOL OutputEffectivePoly(CString strAllDomPath, int BG_COLOR = 0)
 
 		unsigned char* buffer = new unsigned char[nXSize*nBandNum*BPB];
 
-		for (int y = 0; y < nYSize; y += 5)
+		for (int y = 0; y < nYSize; y += 15)
 		{
 			memset(buffer, BG_COLOR, nXSize*nBandNum*BPB);
 			pImage->ReadImg(0, y, nXSize, y+1, buffer, nXSize, 1, nBandNum,
@@ -1995,7 +1996,7 @@ BOOL OutputEffectivePoly(CString strAllDomPath, int BG_COLOR = 0)
 
 		point_left.clear();
 
-		double limit = 0.8;
+		double limit = 2.5;
 		point_left.push_back(PointEx(px[0], py[0]));
 		for (int j = 1, k = 2; k < point_count;)
 		{
@@ -2087,8 +2088,149 @@ void CRsDoc::OnEffectpoly()
 		++ite;
 	}
 	strAllDomPath = strAllDomPath.Left(strAllDomPath.GetLength()-1);
-	OutputEffectivePoly(strAllDomPath, 255);
+	OutputEffectivePoly(strAllDomPath, 0);
 
 	ParseEffective();
 	UpdateAllViews(NULL);
+}
+
+
+void CRsDoc::OnOptimize2()
+{
+	auto path_ite = m_vecImagePath.begin();
+	std::fstream infile;
+	std::vector<PolygonExt2> polygons;
+	CString path;
+	while (path_ite != m_vecImagePath.end())
+	{
+		CString image_path = *path_ite;
+		path = image_path.Left(image_path.ReverseFind('\\')+1);
+		CString index_name = image_path.Right(image_path.GetLength()-image_path.ReverseFind('\\')-1);
+		index_name = index_name.Left(index_name.ReverseFind('.'));
+		CString rrlx_path = _T("D:\\output\\")+index_name+_T(".rrlx");
+		infile.open(rrlx_path.GetBuffer(0), std::ios::in);
+
+		int point_count = 0;
+		infile>>point_count;
+
+		double* px = new double[point_count];
+		memset(px, 0, sizeof(double)*point_count);
+		double* py = new double[point_count];
+		memset(py, 0, sizeof(double)*point_count);
+
+		int temp = 0;
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i]>>temp;
+		}
+
+		polygons.push_back(PolygonExt2(point_count, px, py, index_name));
+
+		infile.close();
+		++path_ite;
+	}
+
+	auto polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int num = polygon_ite->point_count_;
+
+		for (auto polygon_ite2 = polygons.begin();
+			polygon_ite2 < polygons.end();
+			++polygon_ite2)
+		{
+			if (polygon_ite2 != polygon_ite)
+			{
+				double* px2 = polygon_ite2->px_;
+				double* py2 = polygon_ite2->py_;
+				int num2 = polygon_ite2->point_count_;
+				for (int n = 0; n < num; ++n)
+				{
+					for (int m = 0; m < num2; ++m)
+					{
+						if (px[n] == px2[m] && py[n] == py2[m])
+						{
+							polygon_ite->np_[n].index_name_n_[polygon_ite->np_[n].shared_by_-1] = polygon_ite2->index_name_;
+							++(polygon_ite->np_[n].shared_by_);
+						}
+					}
+				}
+			}
+		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		auto ite = polygon_ite->np_.begin();
+		while (ite != polygon_ite->np_.end())
+		{
+			if (ite == polygon_ite->np_.begin())
+			{
+				if (ite->shared_by_ == 2 && polygon_ite->np_.back().shared_by_ != 1
+					&& (ite+1)->shared_by_ != 1
+					&& NotImportant(*ite, polygon_ite->np_.back(), *(ite+1)))
+				{
+					ite->available_ = false;
+				}
+			}
+			else if (ite == polygon_ite->np_.end()-1)
+			{
+				if (ite->shared_by_ == 2 && (ite-1)->shared_by_ != 1
+					&& polygon_ite->np_.front().shared_by_ != 1
+					&& NotImportant(*ite, *(ite-1), polygon_ite->np_.front()))
+				{
+					ite->available_ = false;
+				}
+			}
+			else
+			{
+				if (ite->shared_by_ == 2 && (ite-1)->shared_by_ != 1
+					&& (ite+1)->shared_by_ != 1
+					&& NotImportant(*ite, *(ite+1), *(ite-1)))
+				{
+					ite->available_ = false;
+				}
+			}
+			++ite;
+		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		polygon_ite->DeletePoint();
+		polygon_ite->Output("D:\\output\\");
+		++polygon_ite;
+	}
+
+	std::vector<PolygonExt2> EffPolygons;
+	path_ite = m_vecImagePath.begin();
+	while (path_ite != m_vecImagePath.end())
+	{
+		CString index_name = *path_ite;
+		index_name = index_name.Right(index_name.GetLength()-index_name.ReverseFind('\\')-1);
+		index_name = index_name.Left(index_name.ReverseFind('.'));
+
+		CString ep_name = *path_ite+_T(".ep");
+		std::fstream infile;
+		infile.open(ep_name.GetBuffer(0), std::ios::in);
+		int point_count = 0;
+		infile>>point_count;
+		double* px = new double[point_count];
+		double* py = new double[point_count];
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i];
+		}
+		EffPolygons.push_back(PolygonExt2(point_count, px, py, index_name));
+
+		infile.close();
+		++path_ite;
+	}
 }

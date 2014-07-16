@@ -14,6 +14,8 @@
 
 
 #pragma once
+#include <algorithm>
+#include <fstream>
 
 
 struct RectFExt
@@ -69,9 +71,20 @@ struct PolygonExt
 		: point_count_(point_count)
 		, px_(px)
 		, py_(py)
+		, index_name_("")
 	{
 
 	}
+
+	PolygonExt(int point_count, double* px, double* py, CString index_name)
+		: point_count_(point_count)
+		, px_(px)
+		, py_(py)
+		, index_name_(index_name)
+	{
+
+	}
+
 	void Free()
 	{
 		point_count_ = 0;
@@ -83,8 +96,289 @@ struct PolygonExt
 	int point_count_;
 	double* px_;
 	double* py_;
+	CString index_name_;
 };
 
+struct NodeProperty
+{
+	NodeProperty(int shared_by)
+		: shared_by_(shared_by)
+		, available_(true)
+	{
+
+	}
+	int shared_by_;
+	CString index_name_n_[3];
+	bool available_;
+};
+
+static bool NotImportant(NodeProperty& center, NodeProperty& left, NodeProperty& right)
+{
+	CString leftstr = center.index_name_n_[0];
+
+	if (leftstr != left.index_name_n_[0] && leftstr != left.index_name_n_[1]
+	&& leftstr != left.index_name_n_[2])
+	{
+		return false;
+	}
+
+	if (leftstr != right.index_name_n_[0] && leftstr != right.index_name_n_[1]
+	&& leftstr != right.index_name_n_[2])
+	{
+		return false;
+	}
+
+	return true;
+}
+
+struct PolygonExt2
+{
+	PolygonExt2(int point_count, double* px, double* py, CString index_name)
+		: point_count_(point_count)
+		, px_(px)
+		, py_(py)
+		, index_name_(index_name)
+	{
+		np_.resize(point_count_, 1);
+	}
+
+	void DeletePoint()
+	{
+		int temp_point_count = 0;
+		std::for_each(np_.begin(), np_.end(),
+			[&temp_point_count](NodeProperty np)
+		{
+			if (np.available_)
+			{
+				++temp_point_count;
+			}
+		});
+
+		double* temp_px = new double[temp_point_count];
+		double* temp_py = new double[temp_point_count];
+		memset(temp_px, 0, sizeof(double)*temp_point_count);
+		memset(temp_py, 0, sizeof(double)*temp_point_count);
+
+		for (int i = 0, offset = 0; i < temp_point_count; ++i)
+		{
+			while(!np_[i+offset].available_)
+			{
+				++offset;
+			}
+			temp_px[i] = px_[i+offset];
+			temp_py[i] = py_[i+offset];
+		}
+
+		point_count_ = temp_point_count;
+		delete []px_;
+		delete []py_;
+		px_ = temp_px;
+		py_ = temp_py;
+
+		auto ite = np_.begin();
+		while (ite != np_.end())
+		{
+			if (ite->available_ == false)
+			{
+				ite = np_.erase(ite);
+				continue;
+			}
+			++ite;
+		}
+	}
+	void Output(CString path)
+	{
+		path += index_name_;
+		path += _T(".rrlx");
+		std::fstream outfile;
+		outfile.open(path.LockBuffer(), std::ios::out);
+		if (outfile != NULL)
+		{
+			outfile<<std::fixed;
+			outfile<<point_count_<<std::endl;
+			for (int i = 0; i < point_count_; ++i)
+			{
+				outfile<<px_[i]<<"   "<<py_[i]<<"   "<<0<<std::endl;
+			}
+		}
+		outfile.close();
+	}
+	void ResetPoint(CString index, double px, double py, double newx, double newy)
+	{
+		if (index == index_name_ || index == _T(""))
+		{
+			for (int i = 0; i < point_count_; ++i)
+			{
+				if (px_[i] == px && py_[i] == py)
+				{
+					px_[i] = newx;
+					py_[i] = newy;
+				}
+			}
+		}
+	}
+	void Free()
+	{
+		delete []px_;
+		delete []py_;
+		px_ = NULL;
+		py_ = NULL;
+	}
+
+	bool operator==(const PolygonExt2& poly)const
+	{
+		return index_name_ == poly.index_name_;
+	}
+
+	int point_count_;
+	double* px_;
+	double* py_;
+	CString index_name_;
+	std::vector<NodeProperty> np_;
+};
+
+static bool Compare(double ax, double ay, double bx, double by)
+{
+	return (ay < by) || (fabs(ay-by) < 0.000001 && ax < bx);
+}
+
+static double cross(double ox, double oy, double ax, double ay, double bx, double by)
+{
+	return (ax-ox)*(by-oy)-(ay-oy)*(bx-ox);
+}
+
+static double length2(double ax, double ay, double bx, double by)
+{
+	return (ax-bx)*(ax-bx)+(ay-by)*(ay-by);
+}
+
+static bool farer(double ox, double oy, double ax, double ay, double bx, double by)
+{
+	return length2(ox, oy, ax, ay) > length2(ox, oy, bx, by);
+}
+
+static void ConvexHull(PolygonExt& poly)
+{
+	double* px = poly.px_;
+	double* py = poly.py_;
+	int point_count = poly.point_count_;
+
+	int start = 0;
+	for (int i = 1; i < point_count; ++i)
+	{
+		if (Compare(px[i], py[i], px[start], py[start]))
+		{
+			start = i;
+		}
+	}
+
+	std::vector<int> index;
+	index.push_back(start);
+
+	int m = 1;
+	while (true)
+	{
+		int next = start;
+		for (int i = 0; i < point_count;++i)
+		{
+			double c = cross(px[index[m-1]], py[index[m-1]], px[i], py[i], px[next], py[next]);
+			if (c > 0 ||
+				c == 0 &&
+				farer(px[index[m-1]], py[index[m-1]], px[i], py[i], px[next], py[next]))
+			{
+				next = i;
+			}
+		}
+		if (next == start)
+		{
+			break;
+		}
+		index.push_back(next);
+		++m;
+	}
+
+	poly.point_count_ = index.size();
+	double* tempx = new double[index.size()];
+	double* tempy = new double[index.size()];
+	for (unsigned int i = 0; i < index.size(); ++i)
+	{
+		tempx[i] = px[index[i]];
+		tempy[i] = py[index[i]];
+	}
+	delete []poly.px_;
+	delete []poly.py_;
+	poly.px_ = tempx;
+	poly.py_ = tempy;
+}
+
+static void ConvexHull(PolygonExt2& poly)
+{
+	double* px = poly.px_;
+	double* py = poly.py_;
+	int point_count = poly.point_count_;
+
+	int start = 0;
+	for (int i = 1; i < point_count; ++i)
+	{
+		if (Compare(px[i], py[i], px[start], py[start]))
+		{
+			start = i;
+		}
+	}
+
+	std::vector<int> index;
+	index.push_back(start);
+
+	int m = 1;
+	while (true)
+	{
+		int next = start;
+		for (int i = 0; i < point_count;++i)
+		{
+			double c = cross(px[index[m-1]], py[index[m-1]], px[i], py[i], px[next], py[next]);
+			if (c > 0 ||
+				c == 0 &&
+				farer(px[index[m-1]], py[index[m-1]], px[i], py[i], px[next], py[next]))
+			{
+				next = i;
+			}
+		}
+		if (next == start)
+		{
+			break;
+		}
+		index.push_back(next);
+		++m;
+	}
+
+	poly.point_count_ = index.size();
+	double* tempx = new double[index.size()];
+	double* tempy = new double[index.size()];
+	for (unsigned int i = 0; i < index.size(); ++i)
+	{
+		tempx[i] = px[index[i]];
+		tempy[i] = py[index[i]];
+	}
+	delete []poly.px_;
+	delete []poly.py_;
+	poly.px_ = tempx;
+	poly.py_ = tempy;
+}
+
+static PolygonExt2 Intersects(PolygonExt2& poly1, PolygonExt2& poly2)
+{
+
+}
+
+struct PointEx{
+	PointEx(){x = 0; y = 0;}
+	PointEx(int xpos, int ypos):x(xpos), y(ypos){}
+	int x;
+	int y;
+
+	bool operator==(const PointEx& pt)const {return (x == pt.x && y == pt.y);}
+	void operator=(const PointEx& pt){x = pt.x; y = pt.y;}
+};
 
 class CRsDoc : public CDocument
 {
@@ -169,6 +463,7 @@ private:
 public:
 	std::vector<RectFExt> m_vecImageRect;
 	std::vector<PolygonExt> m_vecMosaicLine;
+	std::vector<PolygonExt> m_vecEffectivePoly;
 
 public:
 	void GetBufSize(int &nBufWidth, int &nBufHeight);
@@ -195,7 +490,9 @@ public:
 	void GetShapeIterator(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum, std::vector<int>::iterator& itePolyNum);
 	void GetShapeIterEnd(std::vector<double*>::iterator& iteX, std::vector<double*>::iterator& iteY, std::vector<int>::iterator& iteNum, std::vector<int>::iterator& itePolyNum);
 	std::vector<PolygonExt>& GetPolygonVec();
+	std::vector<PolygonExt>& GetEffectivepoly();
 	void ParsePolygon();
+	void ParseEffective();
 
 
 // 生成的消息映射函数
@@ -213,4 +510,8 @@ public:
 	afx_msg void OnAddvector();
 	afx_msg void OnGenerateline();
 	afx_msg void OnDxf2dsm();
+	afx_msg void OnOptimize();
+	afx_msg void OnEffectpoly();
+	afx_msg void OnOptimize2();
+	afx_msg void OnLoadmosaic();
 };

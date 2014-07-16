@@ -27,6 +27,9 @@
 #include "VectorsPane.h"
 #include <algorithm>
 #include <fstream>
+#include "clipper.hpp"
+using namespace ClipperLib;
+
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -43,6 +46,10 @@ BEGIN_MESSAGE_MAP(CRsDoc, CDocument)
 	ON_COMMAND(ID_ADDVECTOR, &CRsDoc::OnAddvector)
 	ON_COMMAND(ID_GENERATElINE, &CRsDoc::OnGenerateline)
 	ON_COMMAND(ID_DXF2DSM, &CRsDoc::OnDxf2dsm)
+	ON_COMMAND(ID_OPTIMIZE, &CRsDoc::OnOptimize)
+	ON_COMMAND(ID_EFFECTPOLY, &CRsDoc::OnEffectpoly)
+	ON_COMMAND(ID_OPTIMIZE2, &CRsDoc::OnOptimize2)
+	ON_COMMAND(ID_LOADMOSAIC, &CRsDoc::OnLoadmosaic)
 END_MESSAGE_MAP()
 
 
@@ -251,7 +258,7 @@ void CRsDoc::OnFileOpen()
 		OFN_ALLOWMULTISELECT | OFN_ENABLESIZING | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY,
 		strFileFilter, NULL, 0, TRUE);
 
-	const int MIN_FILE_NUMBER = 10;
+	const int MIN_FILE_NUMBER = 80000;
 	fdlg.m_ofn.lpstrFile = new TCHAR[_MAX_PATH*MIN_FILE_NUMBER];
 	memset(fdlg.m_ofn.lpstrFile, 0, _MAX_PATH*MIN_FILE_NUMBER);
 	fdlg.m_ofn.nMaxFile = _MAX_PATH*MIN_FILE_NUMBER;
@@ -932,7 +939,7 @@ void CRsDoc::OnAddraster()
 		OFN_ALLOWMULTISELECT | OFN_ENABLESIZING | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY,
 		strFileFilter, NULL, 0, TRUE);
 
-	const int MIN_FILE_NUMBER = 10;
+	const int MIN_FILE_NUMBER = 80000;
 	fdlg.m_ofn.lpstrFile = new TCHAR[_MAX_PATH*MIN_FILE_NUMBER];
 	memset(fdlg.m_ofn.lpstrFile, 0, _MAX_PATH*MIN_FILE_NUMBER);
 	fdlg.m_ofn.nMaxFile = _MAX_PATH*MIN_FILE_NUMBER;
@@ -1133,9 +1140,47 @@ void CRsDoc::ParsePolygon()
 	});
 }
 
+void CRsDoc::ParseEffective()
+{
+	if (!m_vecEffectivePoly.empty())
+	{
+		std::for_each(m_vecEffectivePoly.begin(), m_vecEffectivePoly.end(),
+			[&](PolygonExt& poly)
+		{
+			poly.Free();
+		});
+		m_vecEffectivePoly.clear();
+	}
+	std::for_each(m_vecImagePath.begin(), m_vecImagePath.end(),
+		[&](CString imagepath)
+	{
+		CString ep = imagepath+_T(".ep");
+		std::fstream infile;
+		infile.open(ep.GetBuffer(0), std::ios::in);
+		int point_count = 0;
+		infile>>point_count;
+		double* px = new double[point_count];
+		memset(px, 0, sizeof(double)*point_count);
+		double* py = new double[point_count];
+		memset(py, 0, sizeof(double)*point_count);
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i];
+		}
+		PolygonExt poly(point_count, px, py);
+		ConvexHull(poly);
+		m_vecEffectivePoly.push_back(poly);
+	});
+}
+
 std::vector<PolygonExt>& CRsDoc::GetPolygonVec()
 {
 	return m_vecMosaicLine;
+}
+
+std::vector<PolygonExt>& CRsDoc::GetEffectivepoly()
+{
+	return m_vecEffectivePoly;
 }
 
 void CRsDoc::OnAddvector()
@@ -1492,4 +1537,825 @@ void CRsDoc::OnDxf2dsm()
 			return;
 		}
 	}
+}
+
+
+void CRsDoc::OnOptimize()
+{
+	auto path_ite = m_vecImagePath.begin();
+	std::fstream infile;
+	std::vector<PolygonExt2> polygons;
+	CString path;
+	while (path_ite != m_vecImagePath.end())
+	{
+		CString image_path = *path_ite;
+		path = image_path.Left(image_path.ReverseFind('\\')+1);
+		CString index_name = image_path.Right(image_path.GetLength()-image_path.ReverseFind('\\')-1);
+		index_name = index_name.Left(index_name.ReverseFind('.'));
+		CString rrlx_path = _T("D:\\output\\")+index_name+_T(".rrlx");
+		infile.open(rrlx_path.GetBuffer(0), std::ios::in);
+
+		int point_count = 0;
+		infile>>point_count;
+
+		double* px = new double[point_count];
+		memset(px, 0, sizeof(double)*point_count);
+		double* py = new double[point_count];
+		memset(py, 0, sizeof(double)*point_count);
+
+		int temp = 0;
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i]>>temp;
+		}
+
+		polygons.push_back(PolygonExt2(point_count, px, py, index_name));
+
+		infile.close();
+		++path_ite;
+	}
+
+	auto polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int num = polygon_ite->point_count_;
+
+		for (auto polygon_ite2 = polygons.begin();
+			polygon_ite2 < polygons.end();
+			++polygon_ite2)
+		{
+			if (polygon_ite2 != polygon_ite)
+			{
+				double* px2 = polygon_ite2->px_;
+				double* py2 = polygon_ite2->py_;
+				int num2 = polygon_ite2->point_count_;
+				for (int n = 0; n < num; ++n)
+				{
+					for (int m = 0; m < num2; ++m)
+					{
+						if (px[n] == px2[m] && py[n] == py2[m])
+						{
+							polygon_ite->np_[n].index_name_n_[polygon_ite->np_[n].shared_by_-1] = polygon_ite2->index_name_;
+							++(polygon_ite->np_[n].shared_by_);
+						}
+					}
+				}
+			}
+		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		auto ite = polygon_ite->np_.begin();
+		while (ite != polygon_ite->np_.end())
+		{
+			if (ite == polygon_ite->np_.begin())
+			{
+				if (ite->shared_by_ == 2 && polygon_ite->np_.back().shared_by_ != 1
+					&& (ite+1)->shared_by_ != 1
+					&& NotImportant(*ite, polygon_ite->np_.back(), *(ite+1)))
+				{
+					ite->available_ = false;
+				}
+			}
+			else if (ite == polygon_ite->np_.end()-1)
+			{
+				if (ite->shared_by_ == 2 && (ite-1)->shared_by_ != 1
+					&& polygon_ite->np_.front().shared_by_ != 1
+					&& NotImportant(*ite, *(ite-1), polygon_ite->np_.front()))
+				{
+					ite->available_ = false;
+				}
+			}
+			else
+			{
+				if (ite->shared_by_ == 2 && (ite-1)->shared_by_ != 1
+					&& (ite+1)->shared_by_ != 1
+					&& NotImportant(*ite, *(ite+1), *(ite-1)))
+				{
+					ite->available_ = false;
+				}
+			}
+			++ite;
+		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		polygon_ite->DeletePoint();
+		polygon_ite->Output("D:\\output\\");
+		//polygon_ite->Free();
+		++polygon_ite;
+	}
+
+	IImageX* pImage = NULL;
+	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&pImage);
+	pImage->Open(_bstr_t("D:\\out.tif"), modeRead);
+	double resolution = 0;
+	double temp;
+	pImage->GetGrdInfo(&temp, &temp, &resolution);
+
+	IImageX* tempImage = NULL;
+	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
+
+	const int blockArea = 50;
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int num = polygon_ite->point_count_;
+
+		CString image_path = path+polygon_ite->index_name_+_T(".tif");
+		tempImage->Open(image_path.AllocSysString(), modeRead);
+		RectFExt the_rect;
+		int nXSize = 0, nYSize = 0;
+		double lfCellSize = 0;
+		double lfXOrigin = 0, lfYOrigin = 0;
+
+		tempImage->GetCols(&nXSize);
+		tempImage->GetRows(&nYSize);
+		tempImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfCellSize);
+		tempImage->Close();
+
+		the_rect.left = lfXOrigin;
+		the_rect.right = lfXOrigin+nXSize*lfCellSize;
+		the_rect.bottom = lfYOrigin;
+		the_rect.top = lfYOrigin+nYSize*lfCellSize;
+
+		for (int i = 0; i < num; ++i)
+		{
+			double geox = px[i];
+			double geoy = py[i];
+			float fx = 0, fy = 0;
+			pImage->World2Image(geox, geoy, &fx, &fy);
+			unsigned char height;
+			pImage->GetPixel((int)fy, (int)fx, &height);
+			if (height == 0)
+			{
+				continue;
+			}
+			RectFExt result_result = the_rect;
+			if (polygon_ite->np_[i].shared_by_ != 1)
+			{
+				for (int j = 0; j < polygon_ite->np_[i].shared_by_-1; ++j)
+				{
+					image_path = path+polygon_ite->np_[i].index_name_n_[j]+_T(".tif");
+					tempImage->Open(image_path.AllocSysString(), modeRead);
+					RectFExt temp_rect;
+
+					int nx = 0, ny = 0;
+					double cellsize = 0;
+					double xorigin = 0, yorigin = 0;
+
+					tempImage->GetCols(&nx);
+					tempImage->GetRows(&ny);
+					tempImage->GetGrdInfo(&xorigin, &yorigin, &cellsize);
+					tempImage->Close();
+
+					temp_rect.left = xorigin;
+					temp_rect.right = xorigin+nx*cellsize;
+					temp_rect.bottom = yorigin;
+					temp_rect.top = yorigin+ny*cellsize;
+
+					result_result = result_result.Intersected(temp_rect);
+				}
+				RectFExt buf_rect;
+				buf_rect.left = px[i]-blockArea*resolution;
+				buf_rect.right = px[i]+blockArea*resolution;
+				buf_rect.bottom = py[i]-blockArea*resolution;
+				buf_rect.top = py[i]+blockArea*resolution;
+				buf_rect = buf_rect.Intersected(result_result);
+				if (buf_rect.IsEmpty())
+				{
+					continue;
+				}
+				float buffer_left = 0, buffer_right = 0,
+					buffer_bottom = 0, buffer_top = 0;
+				pImage->World2Image(buf_rect.left, buf_rect.bottom,
+					&buffer_left, &buffer_top);
+				pImage->World2Image(buf_rect.right, buf_rect.top,
+					&buffer_right, &buffer_bottom);
+
+				int buffer_height = int(buffer_bottom-buffer_top+0.99999);
+				int buffer_width = int(buffer_right-buffer_left+0.99999);
+
+				unsigned short* buf = new unsigned short[buffer_height*buffer_width];
+				memset(buf, 0, buffer_height*buffer_width*sizeof(unsigned short));
+				pImage->ReadImg(buffer_left, buffer_top, buffer_right, buffer_bottom,
+					(unsigned char*)buf, buffer_width, buffer_height, 1, 0, 0,
+					buffer_width, buffer_height, -1, 0);
+				int start_col = int(fx-buffer_left+0.99999);
+				int start_row = int(fy-buffer_top+0.99999);
+				if (start_col >= buffer_width || start_row >= buffer_height)
+				{
+					continue;
+				}
+				bool isFind = false;
+				int ncount = 0;
+				const int count_limit = 7;
+
+				for (int f = start_col-1; f >= 0; --f)
+				{
+					if (buf[start_row*buffer_width+f] == 0)
+					{
+						++ncount;
+						if (ncount >= count_limit)
+						{
+							isFind = true;
+							std::for_each(polygons.begin(), polygons.end(),
+								[&](PolygonExt2 & poly)
+							{
+								poly.ResetPoint("", geox, geoy,
+									geox-(start_col-f)*resolution, geoy);
+							});
+							break;
+						}
+					}
+				}
+				if (!isFind)
+				{
+					ncount = 0;
+					for (int f = start_col+1; start_col < buffer_width; ++f)
+					{
+						if (buf[start_row*buffer_width+f] == 0)
+						{
+							++ncount;
+							if (ncount >= count_limit)
+							{
+								isFind = true;
+								std::for_each(polygons.begin(), polygons.end(),
+									[&](PolygonExt2 & poly)
+								{
+									poly.ResetPoint("", geox, geoy,
+										geox+(f-start_col)*resolution, geoy);
+								});
+								break;
+							}
+						}
+					}
+				}
+				if (!isFind)
+				{
+					ncount = 0;
+					for (int f = start_row-1; f >= 0; --f)
+					{
+						if (buf[f*buffer_width+start_row] == 0)
+						{
+							++ncount;
+							if (ncount >= count_limit)
+							{
+								isFind = true;
+								std::for_each(polygons.begin(), polygons.end(),
+									[&](PolygonExt2 & poly)
+								{
+									poly.ResetPoint("", geox, geoy,
+										geox, geoy-(start_row-f)*resolution);
+								});
+								break;
+							}
+						}
+					}
+				}
+				if (!isFind)
+				{
+					ncount = 0;
+					for (int f = start_row+1; f < buffer_height; ++f)
+					{
+						if (buf[f*buffer_width+start_row] == 0)
+						{
+							++ncount;
+							if (ncount >= count_limit)
+							{
+								isFind = true;
+								std::for_each(polygons.begin(), polygons.end(),
+									[&](PolygonExt2 & poly)
+								{
+									poly.ResetPoint("", geox, geoy,
+										geox, geoy+(f-start_row)*resolution);
+								});
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		//polygon_ite->DeletePoint();
+		polygon_ite->Output("D:\\output\\");
+		polygon_ite->Free();
+		++polygon_ite;
+	}
+
+	ParsePolygon();
+	UpdateAllViews(NULL);
+}
+
+double GetDistance(double pointx, double pointy, double linestartx, double linestarty, 
+	double lineendx, double lineendy)
+{
+	double a = linestarty-lineendy;
+	double b = lineendx-linestartx;
+	double c = linestartx*lineendy-lineendx*linestarty;
+
+	return fabs(a*pointx+b*pointy+c)/(sqrt(a*a+b*b));
+}
+
+BOOL OutputEffectivePoly(CString strAllDomPath, int BG_COLOR = 0)
+{
+	std::vector<CString> vecImagePath;
+	while (1)
+	{
+		int nIndex = strAllDomPath.ReverseFind(';');
+		CString strDomPath("");
+		if (nIndex == -1)
+		{
+			strDomPath = strAllDomPath;
+			vecImagePath.push_back(strDomPath);
+			break;
+		}
+		else
+		{
+			strDomPath = strAllDomPath.Right(strAllDomPath.GetLength()-nIndex-1);
+			vecImagePath.push_back(strDomPath);
+			strAllDomPath = strAllDomPath.Left(nIndex);
+		}
+	}
+
+	std::vector<CString>::const_iterator image_path = vecImagePath.begin();
+
+	IImageX* pImage = NULL;
+	HRESULT hRes = CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&pImage);
+	if (FAILED(hRes))
+	{
+		return FALSE;
+	}
+
+	while (image_path != vecImagePath.end())
+	{
+		std::vector<PointEx> point_left;
+		std::vector<PointEx> point_right;
+		hRes = pImage->Open(image_path->AllocSysString(), modeRead);
+		if (hRes == S_FALSE)
+		{
+			if (pImage)
+			{
+				pImage->Release();
+				pImage = NULL;
+			}
+			vecImagePath.clear();
+			return FALSE;
+		}
+
+		int nXSize = 0, nYSize = 0, nBandNum = 0;
+		double lfXOrigin = 0, lfYOrigin = 0, lfCellSize = 0;
+		int BPB = 0;
+		pImage->GetCols(&nXSize);
+		pImage->GetRows(&nYSize);
+		pImage->GetBandNum(&nBandNum);
+		pImage->GetBPB(&BPB);
+		pImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfCellSize);
+
+		unsigned char* buffer = new unsigned char[nXSize*nBandNum*BPB];
+
+		for (int y = 0; y < nYSize; y += 15)
+		{
+			memset(buffer, BG_COLOR, nXSize*nBandNum*BPB);
+			pImage->ReadImg(0, y, nXSize, y+1, buffer, nXSize, 1, nBandNum,
+				0, 0, nXSize, 1, -1, 0);
+			for (int x = 0; x < nXSize; ++x)
+			{
+				int result = 0;
+				if (BPB == 1)
+				{
+					for (int n = 0; n < nBandNum; ++n)
+					{
+						result += buffer[x*nBandNum+n];
+					}
+				}
+				else if (BPB == 2)
+				{
+					unsigned short* data = (unsigned short*)buffer;
+					for (int n = 0; n < nBandNum; ++n)
+					{
+						result += data[x*nBandNum+n];
+					}
+				}
+
+				if (result != nBandNum*BG_COLOR)
+				{
+					point_left.push_back(PointEx(x, y));
+					break;
+				}
+			}
+			for(int x = nXSize-1; x >= 0; --x)
+			{
+				int result = 0;
+				if (BPB == 1)
+				{
+					for (int n = 0; n < nBandNum; ++n)
+					{
+						result += buffer[x*nBandNum+n];
+					}
+				}
+				else if (BPB == 2)
+				{
+					unsigned short* data = (unsigned short*)buffer;
+					for (int n = 0; n < nBandNum; ++n)
+					{
+						result += data[x*nBandNum+n];
+					}
+				}
+
+				if (result != nBandNum*BG_COLOR)
+				{
+					point_right.push_back(PointEx(x, y));
+					break;
+				}
+			}
+		}
+		delete []buffer;
+		buffer = NULL;
+		pImage->Close();
+
+		int point_count = point_left.size();
+		double* px = new double[point_count];
+		double* py = new double[point_count];
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			px[i] = point_left[i].x;
+			py[i] = point_left[i].y;
+		}
+
+		point_left.clear();
+
+		double limit = 2.5;
+		point_left.push_back(PointEx(px[0], py[0]));
+		for (int j = 1, k = 2; k < point_count;)
+		{
+			if(GetDistance(px[j], py[j], point_left.back().x, point_left.back().y,
+				px[k], py[k])-limit < 0.000001)
+			{
+				++j;
+				++k;
+			}
+			else
+			{
+				point_left.push_back(PointEx(px[j], py[j]));
+				++j;
+				++k;
+			}
+		}
+		point_left.push_back(PointEx(px[point_count-1], py[point_count-1]));
+		delete []px;
+		px = NULL;
+		delete []py;
+		py = NULL;
+
+		point_count = point_right.size();
+		px = new double[point_count];
+		py = new double[point_count];
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			px[i] = point_right[i].x;
+			py[i] = point_right[i].y;
+		}
+
+		point_right.clear();
+
+		point_right.push_back(PointEx(px[0], py[0]));
+		for (int j = 1, k = 2; k < point_count;)
+		{
+			if(GetDistance(px[j], py[j], point_right.back().x, point_right.back().y,
+				px[k], py[k])-limit < 0.000001)
+			{
+				++j;
+				++k;
+			}
+			else
+			{
+				point_right.push_back(PointEx(px[j], py[j]));
+				++j;
+				++k;
+			}
+		}
+		point_right.push_back(PointEx(px[point_count-1], py[point_count-1]));
+		delete []px;
+		px = NULL;
+		delete []py;
+		py = NULL;
+
+		std::fstream outfile;
+		CString point_path = (*image_path)+_T(".ep");
+		outfile.open(point_path.GetBuffer(0), std::ios::out);
+		outfile<<std::fixed;
+		outfile<<point_left.size()+point_right.size()<<"\n";
+		for (int i = 0; i < point_left.size(); ++i)
+		{
+			outfile<<point_left[i].x*lfCellSize+lfXOrigin<<"   "<<point_left[i].y*lfCellSize+lfYOrigin<<"\n";
+		}
+
+		for (int i = point_right.size()-1; i >= 0; --i)
+		{
+			outfile<<point_right[i].x*lfCellSize+lfXOrigin<<"   "<<point_right[i].y*lfCellSize+lfYOrigin<<"\n";
+		}
+		outfile.close();
+
+		++image_path;
+	}
+	vecImagePath.clear();
+	pImage->Release();
+
+	return TRUE;
+}
+
+
+void CRsDoc::OnEffectpoly()
+{
+	CString strAllDomPath;
+	auto ite = m_vecImagePath.begin();
+	while(ite != m_vecImagePath.end())
+	{
+		strAllDomPath = strAllDomPath+*ite+_T(";");
+		++ite;
+	}
+	strAllDomPath = strAllDomPath.Left(strAllDomPath.GetLength()-1);
+	OutputEffectivePoly(strAllDomPath, 0);
+
+	ParseEffective();
+	UpdateAllViews(NULL);
+}
+
+
+void CRsDoc::OnOptimize2()
+{
+	auto path_ite = m_vecImagePath.begin();
+	std::fstream infile;
+	std::vector<PolygonExt2> polygons;
+	CString path;
+	while (path_ite != m_vecImagePath.end())
+	{
+		CString image_path = *path_ite;
+		path = image_path.Left(image_path.ReverseFind('\\')+1);
+		CString index_name = image_path.Right(image_path.GetLength()-image_path.ReverseFind('\\')-1);
+		index_name = index_name.Left(index_name.ReverseFind('.'));
+		CString rrlx_path = _T("D:\\output\\")+index_name+_T(".rrlx");
+		infile.open(rrlx_path.GetBuffer(0), std::ios::in);
+
+		int point_count = 0;
+		infile>>point_count;
+
+		double* px = new double[point_count];
+		memset(px, 0, sizeof(double)*point_count);
+		double* py = new double[point_count];
+		memset(py, 0, sizeof(double)*point_count);
+
+		int temp = 0;
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i]>>temp;
+		}
+
+		polygons.push_back(PolygonExt2(point_count, px, py, index_name));
+
+		infile.close();
+		++path_ite;
+	}
+
+	auto polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int num = polygon_ite->point_count_;
+
+		for (auto polygon_ite2 = polygons.begin();
+			polygon_ite2 < polygons.end();
+			++polygon_ite2)
+		{
+			if (polygon_ite2 != polygon_ite)
+			{
+				double* px2 = polygon_ite2->px_;
+				double* py2 = polygon_ite2->py_;
+				int num2 = polygon_ite2->point_count_;
+				for (int n = 0; n < num; ++n)
+				{
+					for (int m = 0; m < num2; ++m)
+					{
+						if (px[n] == px2[m] && py[n] == py2[m])
+						{
+							polygon_ite->np_[n].index_name_n_[polygon_ite->np_[n].shared_by_-1] = polygon_ite2->index_name_;
+							++(polygon_ite->np_[n].shared_by_);
+						}
+					}
+				}
+			}
+		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		auto ite = polygon_ite->np_.begin();
+		while (ite != polygon_ite->np_.end())
+		{
+			if (ite == polygon_ite->np_.begin())
+			{
+				if (ite->shared_by_ == 2 && polygon_ite->np_.back().shared_by_ != 1
+					&& (ite+1)->shared_by_ != 1
+					&& NotImportant(*ite, polygon_ite->np_.back(), *(ite+1)))
+				{
+					ite->available_ = false;
+				}
+			}
+			else if (ite == polygon_ite->np_.end()-1)
+			{
+				if (ite->shared_by_ == 2 && (ite-1)->shared_by_ != 1
+					&& polygon_ite->np_.front().shared_by_ != 1
+					&& NotImportant(*ite, *(ite-1), polygon_ite->np_.front()))
+				{
+					ite->available_ = false;
+				}
+			}
+			else
+			{
+				if (ite->shared_by_ == 2 && (ite-1)->shared_by_ != 1
+					&& (ite+1)->shared_by_ != 1
+					&& NotImportant(*ite, *(ite+1), *(ite-1)))
+				{
+					ite->available_ = false;
+				}
+			}
+			++ite;
+		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		polygon_ite->DeletePoint();
+		polygon_ite->Output("D:\\output\\");
+		++polygon_ite;
+	}
+
+	std::vector<PolygonExt2> EffPolygons;
+	path_ite = m_vecImagePath.begin();
+	while (path_ite != m_vecImagePath.end())
+	{
+		CString index_name = *path_ite;
+		index_name = index_name.Right(index_name.GetLength()-index_name.ReverseFind('\\')-1);
+		index_name = index_name.Left(index_name.ReverseFind('.'));
+
+		CString ep_name = *path_ite+_T(".ep");
+		std::fstream infile;
+		infile.open(ep_name.GetBuffer(0), std::ios::in);
+		int point_count = 0;
+		infile>>point_count;
+		double* px = new double[point_count];
+		double* py = new double[point_count];
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i];
+		}
+		EffPolygons.push_back(PolygonExt2(point_count, px, py, index_name));
+
+		infile.close();
+		++path_ite;
+	}
+
+	std::for_each(EffPolygons.begin(), EffPolygons.end(),
+		[&](PolygonExt2& poly)
+	{
+		ConvexHull(poly);
+	});
+
+
+	polygon_ite = polygons.begin();
+	while(polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int point_count = polygon_ite->point_count_;
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			int shared_by = polygon_ite->np_[i].shared_by_;
+			double geox = px[i];
+			double geoy = py[i];
+			if (shared_by >= 2)
+			{
+				Paths polys(shared_by);
+				auto tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
+					PolygonExt2(0, NULL, NULL, polygon_ite->index_name_));
+				if (tempoly == EffPolygons.end())
+				{
+					return;
+				}
+				for (int n = 0; n < tempoly->point_count_; ++n)
+				{
+					polys[0]<<IntPoint(tempoly->px_[n]*10, tempoly->py_[n]*10);
+				}
+				for (int s = 0; s < shared_by-1; ++s)
+				{
+					tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
+						PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[s]));
+					if (tempoly == EffPolygons.end())
+					{
+						return;
+					}
+					for (int n = 0; n < tempoly->point_count_; ++n)
+					{
+						polys[s+1]<<IntPoint(tempoly->px_[n]*10, tempoly->py_[n]*10);
+					}
+				}
+				Paths result;
+				Clipper clip;
+				clip.AddPath(polys[0], ptSubject, true);
+				for (int p = 1; p < shared_by; ++p)
+				{
+					clip.AddPath(polys[p], ptClip, true);
+					clip.Execute(ctIntersection, result);
+					if (p != shared_by-1)
+					{
+						clip.Clear();
+						clip.AddPath(result[0], ptSubject, true);
+						result.clear();
+					}
+				}
+				if (result.size() == 1)
+				{
+					int count = result[0].size();
+					double* tempx = new double[count];
+					double* tempy = new double[count];
+					memset(tempx, 0, sizeof(double)*count);
+					memset(tempy, 0, sizeof(double)*count);
+					for (int p = 0; p < count; ++p)
+					{
+						tempx[p] = result[0][p].X/10.0;
+						tempy[p] = result[0][p].Y/10.0;
+					}
+
+					if (-1 == PtInRegionEx(geox, geoy, tempx, tempy, count, 0.000001))
+					{
+						AfxMessageBox("Not in!");
+					}
+				}
+				else if (result.size() > 0)
+				{
+					AfxMessageBox("Some thing goes wrong!");
+				}
+				else
+				{
+					AfxMessageBox("No intersection!");
+				}
+			}
+// 			int shared_by = polygon_ite->np_[i].shared_by_;
+// 			for (int s = 0; s < shared_by; ++s)
+// 			{
+// 				auto tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
+// 					PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[s]));
+// 				if (tempoly == EffPolygons.end())
+// 				{
+// 					return;
+// 				}
+// 				if (-1 != PtInRegionEx(px[i], py[i], tempoly->px_,
+// 					tempoly->py_, tempoly->point_count_, 0.000001))
+// 				{
+// 					continue;
+// 				}
+// 				else
+// 				{
+// 
+// 				}
+// 			}
+		}
+		++polygon_ite;
+	}
+
+	ParsePolygon();
+	UpdateAllViews(NULL);
+}
+
+
+void CRsDoc::OnLoadmosaic()
+{
+	ParsePolygon();
+	UpdateAllViews(NULL);
 }

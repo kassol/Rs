@@ -27,6 +27,9 @@
 #include "VectorsPane.h"
 #include <algorithm>
 #include <fstream>
+#include "clipper.hpp"
+using namespace ClipperLib;
+
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -46,6 +49,7 @@ BEGIN_MESSAGE_MAP(CRsDoc, CDocument)
 	ON_COMMAND(ID_OPTIMIZE, &CRsDoc::OnOptimize)
 	ON_COMMAND(ID_EFFECTPOLY, &CRsDoc::OnEffectpoly)
 	ON_COMMAND(ID_OPTIMIZE2, &CRsDoc::OnOptimize2)
+	ON_COMMAND(ID_LOADMOSAIC, &CRsDoc::OnLoadmosaic)
 END_MESSAGE_MAP()
 
 
@@ -1163,7 +1167,9 @@ void CRsDoc::ParseEffective()
 		{
 			infile>>px[i]>>py[i];
 		}
-		m_vecEffectivePoly.push_back(PolygonExt(point_count, px, py));
+		PolygonExt poly(point_count, px, py);
+		ConvexHull(poly);
+		m_vecEffectivePoly.push_back(poly);
 	});
 }
 
@@ -2233,4 +2239,123 @@ void CRsDoc::OnOptimize2()
 		infile.close();
 		++path_ite;
 	}
+
+	std::for_each(EffPolygons.begin(), EffPolygons.end(),
+		[&](PolygonExt2& poly)
+	{
+		ConvexHull(poly);
+	});
+
+
+	polygon_ite = polygons.begin();
+	while(polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int point_count = polygon_ite->point_count_;
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			int shared_by = polygon_ite->np_[i].shared_by_;
+			double geox = px[i];
+			double geoy = py[i];
+			if (shared_by >= 2)
+			{
+				Paths polys(shared_by);
+				auto tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
+					PolygonExt2(0, NULL, NULL, polygon_ite->index_name_));
+				if (tempoly == EffPolygons.end())
+				{
+					return;
+				}
+				for (int n = 0; n < tempoly->point_count_; ++n)
+				{
+					polys[0]<<IntPoint(tempoly->px_[n]*10, tempoly->py_[n]*10);
+				}
+				for (int s = 0; s < shared_by-1; ++s)
+				{
+					tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
+						PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[s]));
+					if (tempoly == EffPolygons.end())
+					{
+						return;
+					}
+					for (int n = 0; n < tempoly->point_count_; ++n)
+					{
+						polys[s+1]<<IntPoint(tempoly->px_[n]*10, tempoly->py_[n]*10);
+					}
+				}
+				Paths result;
+				Clipper clip;
+				clip.AddPath(polys[0], ptSubject, true);
+				for (int p = 1; p < shared_by; ++p)
+				{
+					clip.AddPath(polys[p], ptClip, true);
+					clip.Execute(ctIntersection, result);
+					if (p != shared_by-1)
+					{
+						clip.Clear();
+						clip.AddPath(result[0], ptSubject, true);
+						result.clear();
+					}
+				}
+				if (result.size() == 1)
+				{
+					int count = result[0].size();
+					double* tempx = new double[count];
+					double* tempy = new double[count];
+					memset(tempx, 0, sizeof(double)*count);
+					memset(tempy, 0, sizeof(double)*count);
+					for (int p = 0; p < count; ++p)
+					{
+						tempx[p] = result[0][p].X/10.0;
+						tempy[p] = result[0][p].Y/10.0;
+					}
+
+					if (-1 == PtInRegionEx(geox, geoy, tempx, tempy, count, 0.000001))
+					{
+						AfxMessageBox("Not in!");
+					}
+				}
+				else if (result.size() > 0)
+				{
+					AfxMessageBox("Some thing goes wrong!");
+				}
+				else
+				{
+					AfxMessageBox("No intersection!");
+				}
+			}
+// 			int shared_by = polygon_ite->np_[i].shared_by_;
+// 			for (int s = 0; s < shared_by; ++s)
+// 			{
+// 				auto tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
+// 					PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[s]));
+// 				if (tempoly == EffPolygons.end())
+// 				{
+// 					return;
+// 				}
+// 				if (-1 != PtInRegionEx(px[i], py[i], tempoly->px_,
+// 					tempoly->py_, tempoly->point_count_, 0.000001))
+// 				{
+// 					continue;
+// 				}
+// 				else
+// 				{
+// 
+// 				}
+// 			}
+		}
+		++polygon_ite;
+	}
+
+	ParsePolygon();
+	UpdateAllViews(NULL);
+}
+
+
+void CRsDoc::OnLoadmosaic()
+{
+	ParsePolygon();
+	UpdateAllViews(NULL);
 }

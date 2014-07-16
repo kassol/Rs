@@ -174,6 +174,17 @@ struct PolygonExt2
 		delete []py_;
 		px_ = temp_px;
 		py_ = temp_py;
+
+		auto ite = np_.begin();
+		while (ite != np_.end())
+		{
+			if (ite->available_ == false)
+			{
+				ite = np_.erase(ite);
+				continue;
+			}
+			++ite;
+		}
 	}
 	void Output(CString path)
 	{
@@ -214,12 +225,150 @@ struct PolygonExt2
 		py_ = NULL;
 	}
 
+	bool operator==(const PolygonExt2& poly)const
+	{
+		return index_name_ == poly.index_name_;
+	}
+
 	int point_count_;
 	double* px_;
 	double* py_;
 	CString index_name_;
 	std::vector<NodeProperty> np_;
 };
+
+static bool Compare(double ax, double ay, double bx, double by)
+{
+	return (ay < by) || (fabs(ay-by) < 0.000001 && ax < bx);
+}
+
+static double cross(double ox, double oy, double ax, double ay, double bx, double by)
+{
+	return (ax-ox)*(by-oy)-(ay-oy)*(bx-ox);
+}
+
+static double length2(double ax, double ay, double bx, double by)
+{
+	return (ax-bx)*(ax-bx)+(ay-by)*(ay-by);
+}
+
+static bool farer(double ox, double oy, double ax, double ay, double bx, double by)
+{
+	return length2(ox, oy, ax, ay) > length2(ox, oy, bx, by);
+}
+
+static void ConvexHull(PolygonExt& poly)
+{
+	double* px = poly.px_;
+	double* py = poly.py_;
+	int point_count = poly.point_count_;
+
+	int start = 0;
+	for (int i = 1; i < point_count; ++i)
+	{
+		if (Compare(px[i], py[i], px[start], py[start]))
+		{
+			start = i;
+		}
+	}
+
+	std::vector<int> index;
+	index.push_back(start);
+
+	int m = 1;
+	while (true)
+	{
+		int next = start;
+		for (int i = 0; i < point_count;++i)
+		{
+			double c = cross(px[index[m-1]], py[index[m-1]], px[i], py[i], px[next], py[next]);
+			if (c > 0 ||
+				c == 0 &&
+				farer(px[index[m-1]], py[index[m-1]], px[i], py[i], px[next], py[next]))
+			{
+				next = i;
+			}
+		}
+		if (next == start)
+		{
+			break;
+		}
+		index.push_back(next);
+		++m;
+	}
+
+	poly.point_count_ = index.size();
+	double* tempx = new double[index.size()];
+	double* tempy = new double[index.size()];
+	for (unsigned int i = 0; i < index.size(); ++i)
+	{
+		tempx[i] = px[index[i]];
+		tempy[i] = py[index[i]];
+	}
+	delete []poly.px_;
+	delete []poly.py_;
+	poly.px_ = tempx;
+	poly.py_ = tempy;
+}
+
+static void ConvexHull(PolygonExt2& poly)
+{
+	double* px = poly.px_;
+	double* py = poly.py_;
+	int point_count = poly.point_count_;
+
+	int start = 0;
+	for (int i = 1; i < point_count; ++i)
+	{
+		if (Compare(px[i], py[i], px[start], py[start]))
+		{
+			start = i;
+		}
+	}
+
+	std::vector<int> index;
+	index.push_back(start);
+
+	int m = 1;
+	while (true)
+	{
+		int next = start;
+		for (int i = 0; i < point_count;++i)
+		{
+			double c = cross(px[index[m-1]], py[index[m-1]], px[i], py[i], px[next], py[next]);
+			if (c > 0 ||
+				c == 0 &&
+				farer(px[index[m-1]], py[index[m-1]], px[i], py[i], px[next], py[next]))
+			{
+				next = i;
+			}
+		}
+		if (next == start)
+		{
+			break;
+		}
+		index.push_back(next);
+		++m;
+	}
+
+	poly.point_count_ = index.size();
+	double* tempx = new double[index.size()];
+	double* tempy = new double[index.size()];
+	for (unsigned int i = 0; i < index.size(); ++i)
+	{
+		tempx[i] = px[index[i]];
+		tempy[i] = py[index[i]];
+	}
+	delete []poly.px_;
+	delete []poly.py_;
+	poly.px_ = tempx;
+	poly.py_ = tempy;
+}
+
+static PolygonExt2 Intersects(PolygonExt2& poly1, PolygonExt2& poly2)
+{
+
+}
 
 struct PointEx{
 	PointEx(){x = 0; y = 0;}
@@ -364,4 +513,5 @@ public:
 	afx_msg void OnOptimize();
 	afx_msg void OnEffectpoly();
 	afx_msg void OnOptimize2();
+	afx_msg void OnLoadmosaic();
 };

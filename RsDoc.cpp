@@ -2100,6 +2100,10 @@ void CRsDoc::OnEffectpoly()
 	UpdateAllViews(NULL);
 }
 
+double CalDistance(double x1, double y1, double x2, double y2)
+{
+	return (x2-x1)*(x2-x1)+(y2-y1)*(y2-y1);
+}
 
 void CRsDoc::OnOptimize2()
 {
@@ -2259,7 +2263,7 @@ void CRsDoc::OnOptimize2()
 			int shared_by = polygon_ite->np_[i].shared_by_;
 			double geox = px[i];
 			double geoy = py[i];
-			if (shared_by >= 2)
+			if (shared_by >= 3)
 			{
 				Paths polys(shared_by);
 				auto tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
@@ -2314,8 +2318,50 @@ void CRsDoc::OnOptimize2()
 
 					if (-1 == PtInRegionEx(geox, geoy, tempx, tempy, count, 0.000001))
 					{
-						AfxMessageBox("Not in!");
+						int min_index_1 = 0, min_index_2 = 0;
+						double min_distance_1 = 0, min_distance_2 = 0;
+
+						for (int m = 0; m < count; ++m)
+						{
+							double temp_distance = CalDistance(geox, geoy, tempx[m], tempy[m]);
+							if (min_distance_1 == 0 || min_distance_1 > temp_distance)
+							{
+								min_distance_2 = min_distance_1;
+								min_index_2 = min_index_1;
+								min_distance_1 = temp_distance;
+								min_index_1 = m;
+							}
+							else if (min_distance_2 == 0 || min_distance_2 > temp_distance)
+							{
+								min_distance_2 = temp_distance;
+								min_index_2 = m;
+							}
+						}
+						double new_geox = 0, new_geoy = 0;
+						if (abs(min_index_1-min_index_2) == 1)
+						{
+							new_geox = (tempx[min_index_1]+tempx[min_index_2])/2;
+							new_geoy = (tempy[min_index_1]+tempy[min_index_2])/2;
+						}
+						else
+						{
+							int next_index = (min_index_1+1)%count;
+							new_geox = (tempx[min_index_1]+tempx[next_index])/2;
+							new_geoy = (tempy[min_index_1]+tempy[next_index])/2;
+						}
+
+						std::for_each(polygons.begin(), polygons.end(),
+							[&](PolygonExt2& poly)
+						{
+							poly.ResetPoint("", geox, geoy, new_geox, new_geoy);
+						});
+
+						//AfxMessageBox("Not in!");
 					}
+					delete []tempx;
+					tempx = NULL;
+					delete []tempy;
+					tempy = NULL;
 				}
 				else if (result.size() > 0)
 				{
@@ -2346,6 +2392,14 @@ void CRsDoc::OnOptimize2()
 // 				}
 // 			}
 		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		polygon_ite->Output("D:\\output\\");
+		polygon_ite->Free();
 		++polygon_ite;
 	}
 

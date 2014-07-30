@@ -2310,8 +2310,8 @@ void CRsDoc::OnOptimize2()
 
 				limit_poly_x[0] = px[(i+1)%point_count];
 				limit_poly_y[0] = py[(i+1)%point_count];
-				limit_poly_x[1] = px[(i-1)%point_count];
-				limit_poly_y[1] = py[(i-1)%point_count];
+				limit_poly_x[1] = px[(i-1+point_count)%point_count];
+				limit_poly_y[1] = py[(i-1+point_count)%point_count];
 				//获取相邻点所围成的区域点
 				if (shared_by == 3)
 				{
@@ -2325,15 +2325,15 @@ void CRsDoc::OnOptimize2()
 							if (fabs(limit_ite->px_[count]-px[i]) < 0.000001 &&
 								fabs(limit_ite->py_[count]-py[i]) < 0.000001)
 							{
-								if (fabs(limit_ite->px_[(count-1)%temp_count]-limit_poly_x[0]) < 0.000001 &&
-									fabs(limit_ite->py_[(count-1)%temp_count]-limit_poly_y[0]) < 0.000001)
+								if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[0]) < 0.000001 &&
+									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[0]) < 0.000001)
 								{
 									limit_poly_x[2] = limit_ite->px_[(count+1)%temp_count];
 									limit_poly_y[2] = limit_ite->py_[(count+1)%temp_count];
 									break;
 								}
-								else if (fabs(limit_ite->px_[(count-1)%temp_count]-limit_poly_x[1]) < 0.000001 &&
-									fabs(limit_ite->py_[(count-1)%temp_count]-limit_poly_y[1]) < 0.000001)
+								else if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[1]) < 0.000001 &&
+									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[1]) < 0.000001)
 								{
 									limit_poly_x[2] = limit_ite->px_[(count+1)%temp_count];
 									limit_poly_y[2] = limit_ite->py_[(count+1)%temp_count];
@@ -2344,15 +2344,15 @@ void CRsDoc::OnOptimize2()
 									if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[0]) < 0.000001 &&
 										fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[0]) < 0.000001)
 									{
-										limit_poly_x[2] = limit_ite->px_[(count-1)%temp_count];
-										limit_poly_y[2] = limit_ite->py_[(count-1)%temp_count];
+										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
 										break;
 									}
 									else if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[1]) < 0.000001 &&
 										fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[1]) < 0.000001)
 									{
-										limit_poly_x[2] = limit_ite->px_[(count-1)%temp_count];
-										limit_poly_y[2] = limit_ite->py_[(count-1)%temp_count];
+										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
 										break;
 									}
 									else
@@ -2380,8 +2380,8 @@ void CRsDoc::OnOptimize2()
 							if (fabs(limit_ite->px_[count]-px[i]) < 0.000001 &&
 								fabs(limit_ite->py_[count]-py[i]) < 0.000001)
 							{
-								if (fabs(limit_ite->px_[(count-1)%temp_count]-limit_poly_x[0]) < 0.000001 &&
-									fabs(limit_ite->py_[(count-1)%temp_count]-limit_poly_y[0]) < 0.000001)
+								if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[0]) < 0.000001 &&
+									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[0]) < 0.000001)
 								{
 									if (limit_poly_x[2] == 0)
 									{
@@ -2394,13 +2394,26 @@ void CRsDoc::OnOptimize2()
 										limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
 									}
 								}
-								else if (fabs(limit_ite->px_[(count-1)%temp_count]-limit_poly_x[1]) < 0.000001 &&
-									fabs(limit_ite->py_[(count-1)%temp_count]-limit_poly_y[1]) < 0.000001)
+								else if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[1]) < 0.000001 &&
+									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[1]) < 0.000001)
 								{
 									if (limit_poly_x[2] == 0)
 									{
 										limit_poly_x[2] = limit_ite->px_[(count+1)%temp_count];
 										limit_poly_y[2] = limit_ite->py_[(count+1)%temp_count];
+									}
+									else
+									{
+										limit_poly_x[3] = limit_ite->px_[(count+1)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
+									}
+								}
+								else if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[2]) < 0.000001 &&
+									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[2]) < 0.000001)
+								{
+									if (limit_poly_x[2] == 0)
+									{
+										return;
 									}
 									else
 									{
@@ -2414,13 +2427,13 @@ void CRsDoc::OnOptimize2()
 								{
 									if (limit_poly_x[2] == 0)
 									{
-										limit_poly_x[2] = limit_ite->px_[(count-1)%temp_count];
-										limit_poly_y[2] = limit_ite->py_[(count-1)%temp_count];
+										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
 									}
 									else
 									{
-										limit_poly_x[3] = limit_ite->px_[(count-1)%temp_count];
-										limit_poly_y[3] = limit_ite->py_[(count-1)%temp_count];
+										limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
 									}
 								}
 								else if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[1]) < 0.000001 &&
@@ -2428,13 +2441,32 @@ void CRsDoc::OnOptimize2()
 								{
 									if (limit_poly_x[2] == 0)
 									{
-										limit_poly_x[2] = limit_ite->px_[(count-1)%temp_count];
-										limit_poly_y[2] = limit_ite->py_[(count-1)%temp_count];
+										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
 									}
 									else
 									{
-										limit_poly_x[3] = limit_ite->px_[(count-1)%temp_count];
-										limit_poly_y[3] = limit_ite->py_[(count-1)%temp_count];
+										limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
+									}
+								}
+								else if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[2]) < 0.000001 &&
+									fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[2]) < 0.000001)
+								{
+									if (limit_poly_x[2] == 0)
+									{
+										return;
+									}
+									else
+									{
+										if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[0]) > 0.000001 &&
+											fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[0]) > 0.000001 &&
+											fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[1]) > 0.000001 &&
+											fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[1]) > 0.000001)
+										{
+											limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
+											limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
+										}
 									}
 								}
 
@@ -2455,7 +2487,10 @@ void CRsDoc::OnOptimize2()
 					return;
 				}//获取区域结束
 
+				if (shared_by == 4)
+				{
 
+				}
 
 				if (result.size() == 1)
 				{

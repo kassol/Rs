@@ -2411,14 +2411,20 @@ void CRsDoc::OnOptimize2()
 								else if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[2]) < 0.000001 &&
 									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[2]) < 0.000001)
 								{
+									limit_poly_x[3] = limit_ite->px_[(count+1)%temp_count];
+									limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
+								}
+								else
+								{
 									if (limit_poly_x[2] == 0)
 									{
-										return;
+										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
 									}
 									else
 									{
-										limit_poly_x[3] = limit_ite->px_[(count+1)%temp_count];
-										limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
+										limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
 									}
 								}
 
@@ -2453,20 +2459,24 @@ void CRsDoc::OnOptimize2()
 								else if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[2]) < 0.000001 &&
 									fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[2]) < 0.000001)
 								{
-									if (limit_poly_x[2] == 0)
+									if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[0]) > 0.000001 &&
+										fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[0]) > 0.000001 &&
+										fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[1]) > 0.000001 &&
+										fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[1]) > 0.000001)
 									{
-										return;
+										limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
 									}
-									else
+								}
+								else
+								{
+									if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[0]) > 0.000001 &&
+										fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[0]) > 0.000001 &&
+										fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[1]) > 0.000001 &&
+										fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[1]) > 0.000001)
 									{
-										if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[0]) > 0.000001 &&
-											fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[0]) > 0.000001 &&
-											fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[1]) > 0.000001 &&
-											fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[1]) > 0.000001)
-										{
-											limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
-											limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
-										}
+										limit_poly_x[3] = limit_ite->px_[(count+1)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
 									}
 								}
 
@@ -2489,8 +2499,42 @@ void CRsDoc::OnOptimize2()
 
 				if (shared_by == 4)
 				{
-
+					double d1 = 0, d2 = 0, d3 = 3, d4 = 0;
+					d1 = (limit_poly_x[2]-limit_poly_x[1])*(limit_poly_y[0]-limit_poly_y[1])
+						-(limit_poly_x[0]-limit_poly_x[1])*(limit_poly_y[2]-limit_poly_y[1]);
+					d2 = (limit_poly_x[2]-limit_poly_x[1])*(limit_poly_y[3]-limit_poly_y[1])
+						-(limit_poly_x[3]-limit_poly_x[1])*(limit_poly_y[2]-limit_poly_y[1]);
+					d3 = (limit_poly_x[3]-limit_poly_x[0])*(limit_poly_y[1]-limit_poly_y[0])
+						-(limit_poly_x[1]-limit_poly_x[0])*(limit_poly_y[3]-limit_poly_y[0]);
+					d4 = (limit_poly_x[3]-limit_poly_x[0])*(limit_poly_y[2]-limit_poly_y[0])
+						-(limit_poly_x[2]-limit_poly_x[0])*(limit_poly_y[3]-limit_poly_y[0]);
+					if (d1*d2 < 0 && d3*d4 < 0)
+					{
+						double temp = limit_poly_x[2];
+						limit_poly_x[2] = limit_poly_x[3];
+						limit_poly_x[3] = temp;
+						temp = limit_poly_y[2];
+						limit_poly_y[2] = limit_poly_y[3];
+						limit_poly_y[3] = temp;
+					}
 				}
+
+				Path poly;
+				for (int count = 0; count < shared_by; ++count)
+				{
+					poly<<IntPoint(limit_poly_x[count]*10, limit_poly_y[count]*10);
+				}
+
+				clip.Clear();
+				clip.AddPath(result[0], ptSubject, true);
+				result.clear();
+				clip.AddPath(poly, ptClip, true);
+				clip.Execute(ctIntersection, result);
+
+				delete []limit_poly_x;
+				delete []limit_poly_y;
+				limit_poly_x = NULL;
+				limit_poly_y = NULL;
 
 				if (result.size() == 1)
 				{
@@ -2553,7 +2597,7 @@ void CRsDoc::OnOptimize2()
 							{
 								return;
 							}
-							if (-1 != PtInRegionEx(geox, geoy, tempoly->px_, tempoly->py_, tempoly->point_count_, 0.000001))
+							if (-1 == PtInRegionEx(geox, geoy, tempoly->px_, tempoly->py_, tempoly->point_count_, 0.000001))
 							{
 								++not_in_count;
 							}
@@ -2564,11 +2608,11 @@ void CRsDoc::OnOptimize2()
 						{
 							return;
 						}
-						if (-1 != PtInRegionEx(geox, geoy, tempoly->px_, tempoly->py_, tempoly->point_count_, 0.000001))
+						if (-1 == PtInRegionEx(geox, geoy, tempoly->px_, tempoly->py_, tempoly->point_count_, 0.000001))
 						{
 							++not_in_count;
 						}
-						if (not_in_count > 0 && not_in_count < shared_by)
+						if (not_in_count > 0 && not_in_count <= shared_by)
 						{
 							int min_index_1 = 0, min_index_2 = 0;
 							double min_distance_1 = 0, min_distance_2 = 0;
@@ -2617,13 +2661,9 @@ void CRsDoc::OnOptimize2()
 								poly.ResetPoint("", geox, geoy, new_geox, new_geoy);
 							});
 							CString temp;
-							temp.Format("%d, %lf, %lf", not_in_count, geox, geoy);
+							temp.Format("%d, %lf, %lf, %lf, %lf", not_in_count, geox, geoy, new_geox, new_geoy);
 							//AfxMessageBox(temp);
 							//AfxMessageBox("Not in!");
-						}
-						else if (not_in_count == shared_by)
-						{
-							AfxMessageBox("Must be wrong!");
 						}
 					}
 					delete []tempx;
@@ -2640,25 +2680,6 @@ void CRsDoc::OnOptimize2()
 					AfxMessageBox("No intersection!");
 				}
 			}
-// 			int shared_by = polygon_ite->np_[i].shared_by_;
-// 			for (int s = 0; s < shared_by; ++s)
-// 			{
-// 				auto tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
-// 					PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[s]));
-// 				if (tempoly == EffPolygons.end())
-// 				{
-// 					return;
-// 				}
-// 				if (-1 != PtInRegionEx(px[i], py[i], tempoly->px_,
-// 					tempoly->py_, tempoly->point_count_, 0.000001))
-// 				{
-// 					continue;
-// 				}
-// 				else
-// 				{
-// 
-// 				}
-// 			}
 		}
 		++polygon_ite;
 	}

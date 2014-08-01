@@ -493,6 +493,7 @@ public:
 	std::vector<PolygonExt>& GetEffectivepoly();
 	void ParsePolygon();
 	void ParseEffective();
+	void OutputResultImg(std::vector<PolygonExt2>& polygons);
 
 
 // 生成的消息映射函数

@@ -2244,11 +2244,11 @@ void CRsDoc::OnOptimize2()
 		++path_ite;
 	}
 
-	std::for_each(EffPolygons.begin(), EffPolygons.end(),
+	/*std::for_each(EffPolygons.begin(), EffPolygons.end(),
 		[&](PolygonExt2& poly)
 	{
 		ConvexHull(poly);
-	});
+	});*/
 
 
 	polygon_ite = polygons.begin();
@@ -2551,7 +2551,7 @@ void CRsDoc::OnOptimize2()
 
 					if (-1 == PtInRegionEx(geox, geoy, tempx, tempy, count, 0.000001))
 					{
-						/*int min_index_1 = 0, min_index_2 = 0;
+						int min_index_1 = 0, min_index_2 = 0;
 						double min_distance_1 = 0, min_distance_2 = 0;
 
 						for (int m = 0; m < count; ++m)
@@ -2573,22 +2573,27 @@ void CRsDoc::OnOptimize2()
 						double new_geox = 0, new_geoy = 0;
 						if (abs(min_index_1-min_index_2) == 1)
 						{
-							new_geox = (tempx[min_index_1]+tempx[min_index_2])/2;
-							new_geoy = (tempy[min_index_1]+tempy[min_index_2])/2;
+							new_geox = tempx[min_index_1]*min_distance_2/(min_distance_1+min_distance_2)+
+								tempx[min_index_2]*min_distance_1/(min_distance_1+min_distance_2);
+							new_geoy = tempy[min_index_1]*min_distance_2/(min_distance_1+min_distance_2)+
+								tempy[min_index_2]*min_distance_1/(min_distance_1+min_distance_2);
 						}
 						else
 						{
 							int next_index = (min_index_1+1)%count;
-							new_geox = (tempx[min_index_1]+tempx[next_index])/2;
-							new_geoy = (tempy[min_index_1]+tempy[next_index])/2;
+							double temp_distance = CalDistance(geox, geoy, tempx[next_index], tempy[next_index]);
+							new_geox = tempx[min_index_1]*temp_distance/(min_distance_1+temp_distance)+
+								tempx[next_index]*min_distance_1/(min_distance_1+temp_distance);
+							new_geoy = new_geoy = tempy[min_index_1]*temp_distance/(min_distance_1+temp_distance)+
+								tempy[next_index]*min_distance_1/(min_distance_1+temp_distance);
 						}
 
 						std::for_each(polygons.begin(), polygons.end(),
 							[&](PolygonExt2& poly)
 						{
 							poly.ResetPoint("", geox, geoy, new_geox, new_geoy);
-						});*/
-						int not_in_count = 0;
+						});
+						/*int not_in_count = 0;
 						for (int s = 0; s < shared_by-1; ++s)
 						{
 							auto tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
@@ -2597,7 +2602,7 @@ void CRsDoc::OnOptimize2()
 							{
 								return;
 							}
-							if (-1 == PtInRegionEx(geox, geoy, tempoly->px_, tempoly->py_, tempoly->point_count_, 0.000001))
+							if (-1 != PtInRegionEx(geox, geoy, tempoly->px_, tempoly->py_, tempoly->point_count_, 0.000001))
 							{
 								++not_in_count;
 							}
@@ -2608,7 +2613,7 @@ void CRsDoc::OnOptimize2()
 						{
 							return;
 						}
-						if (-1 == PtInRegionEx(geox, geoy, tempoly->px_, tempoly->py_, tempoly->point_count_, 0.000001))
+						if (-1 != PtInRegionEx(geox, geoy, tempoly->px_, tempoly->py_, tempoly->point_count_, 0.000001))
 						{
 							++not_in_count;
 						}
@@ -2664,7 +2669,7 @@ void CRsDoc::OnOptimize2()
 							temp.Format("%d, %lf, %lf, %lf, %lf", not_in_count, geox, geoy, new_geox, new_geoy);
 							//AfxMessageBox(temp);
 							//AfxMessageBox("Not in!");
-						}
+						}*/
 					}
 					delete []tempx;
 					tempx = NULL;
@@ -2673,11 +2678,11 @@ void CRsDoc::OnOptimize2()
 				}
 				else if (result.size() > 0)
 				{
-					AfxMessageBox("Some thing went wrong!");
+					//AfxMessageBox("Some thing went wrong!");
 				}
 				else
 				{
-					AfxMessageBox("No intersection!");
+					//AfxMessageBox("No intersection!");
 				}
 			}
 		}
@@ -2688,12 +2693,20 @@ void CRsDoc::OnOptimize2()
 	while (polygon_ite != polygons.end())
 	{
 		polygon_ite->Output("D:\\output\\");
-		polygon_ite->Free();
+		//polygon_ite->Free();
 		++polygon_ite;
 	}
 
 	ParsePolygon();
 	UpdateAllViews(NULL);
+	OutputResultImg(polygons);
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		//polygon_ite->Output("D:\\output\\");
+		polygon_ite->Free();
+		++polygon_ite;
+	}
 }
 
 
@@ -2701,4 +2714,111 @@ void CRsDoc::OnLoadmosaic()
 {
 	ParsePolygon();
 	UpdateAllViews(NULL);
+}
+
+void CRsDoc::OutputResultImg(std::vector<PolygonExt2>& polygons)
+{
+	IImageX* pImage = NULL;
+	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&pImage);
+	int nCols = (m_lfMaxx-m_lfMinx)/m_lfResolution;
+	int nRows = (m_lfMaxy-m_lfMiny)/m_lfResolution;
+	pImage->CreateImg(_bstr_t("C:\\mosaic.tif"), modeCreate, nCols, nRows, Pixel_Byte, m_nBandNum, BIL, m_lfMinx, m_lfMiny, m_lfResolution);
+
+	IImageX* tempImage = NULL;
+	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
+
+
+	CString strImagePath = m_vecImagePath.front();
+
+	strImagePath = strImagePath.Left(strImagePath.ReverseFind('\\')+1);
+	auto poly_ite = polygons.begin();
+	while (poly_ite != polygons.end())
+	{
+		CString strImgName = poly_ite->index_name_;
+		strImgName += _T(".tif");
+		strImgName = strImagePath+strImgName;
+		double* px = poly_ite->px_;
+		double* py = poly_ite->py_;
+		int point_count = poly_ite->point_count_;
+		tempImage->Open(strImgName.AllocSysString(), modeRead);
+		int cols = 0, rows = 0, nBandnum = 0;
+		double lfXOrigin = 0, lfYOrigin = 0, lfCellSize = 0;
+		tempImage->GetCols(&cols);
+		tempImage->GetRows(&rows);
+		tempImage->GetBandNum(&nBandnum);
+		tempImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfCellSize);
+
+		double minx= 0, maxx = 0, miny = 0, maxy = 0;
+		for (int i = 0; i < point_count; ++i)
+		{
+			if (px[i] < minx || minx == 0)
+			{
+				minx = px[i];
+			}
+			if (px[i] > maxx || maxx == 0)
+			{
+				maxx = px[i];
+			}
+			if (py[i] < miny || miny == 0)
+			{
+				miny = py[i];
+			}
+			if (py[i] > maxy || maxy == 0)
+			{
+				maxy = py[i];
+			}
+		}
+
+		int startx = int((minx-lfXOrigin)/lfCellSize-0.5);
+		int endx = int((maxx-lfXOrigin)/lfCellSize+0.5);
+		if (startx < 0)
+		{
+			startx = 0;
+		}
+		if (endx > cols)
+		{
+			endx = cols;
+		}
+
+		int starty = int((miny-lfYOrigin)/lfCellSize-0.5);
+		int endy = int((maxy-lfYOrigin)/lfCellSize+0.5);
+		if (starty < 0)
+		{
+			starty = 0;
+		}
+		if (endy > rows)
+		{
+			endy = rows;
+		}
+
+		int nXSize = endx-startx;
+		int nYSize = endy-starty;
+
+		unsigned char* pBuf = new unsigned char[nXSize*nYSize*nBandnum];
+		tempImage->ReadImg(startx, starty, endx, endy, pBuf, nXSize, nYSize, nBandnum, 0, 0, nXSize, nYSize, -1, 0);
+		for (int y = starty; y < endy; ++y)
+		{
+			for (int x = startx; x < endx; ++x)
+			{
+				double geox, geoy = 0;
+				tempImage->Image2World(x, y, &geox, &geoy);
+				if (-1 != PtInRegionEx(geox, geoy, px, py, point_count, 0.000001))
+				{
+					int dst_x = 0, dst_y = 0;
+					float dst_lfx = 0, dst_lfy = 0;
+					pImage->World2Image(geox, geoy, &dst_lfx, &dst_lfy);
+					dst_x = int(dst_lfx);
+					dst_y = int(dst_lfy);
+					pImage->WriteImg(dst_x, dst_y, dst_x+1, dst_y+1, pBuf, nXSize, nYSize, nBandnum, x-startx, y-starty, x-startx+1, y-starty+1, -1, 0);
+				}
+			}
+		}
+		delete []pBuf;
+		pBuf = NULL;
+		tempImage->Close();
+		++poly_ite;
+	}
+	pImage->Close();
+	pImage->Release();
+	AfxMessageBox("Finished!");
 }

@@ -1539,6 +1539,10 @@ void CRsDoc::OnDxf2dsm()
 	}
 }
 
+double CalDistance(double x1, double y1, double x2, double y2)
+{
+	return (x2-x1)*(x2-x1)+(y2-y1)*(y2-y1);
+}
 
 void CRsDoc::OnOptimize()
 {
@@ -1649,6 +1653,403 @@ void CRsDoc::OnOptimize()
 	while (polygon_ite != polygons.end())
 	{
 		polygon_ite->DeletePoint();
+		polygon_ite->Output("D:\\output\\");
+		//polygon_ite->Free();
+		++polygon_ite;
+	}
+
+	std::vector<PolygonExt2> EffPolygons;
+	path_ite = m_vecImagePath.begin();
+	while (path_ite != m_vecImagePath.end())
+	{
+		CString index_name = *path_ite;
+		index_name = index_name.Right(index_name.GetLength()-index_name.ReverseFind('\\')-1);
+		index_name = index_name.Left(index_name.ReverseFind('.'));
+
+		CString ep_name = *path_ite+_T(".ep");
+		std::fstream infile;
+		infile.open(ep_name.GetBuffer(0), std::ios::in);
+		int point_count = 0;
+		infile>>point_count;
+		double* px = new double[point_count];
+		double* py = new double[point_count];
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i];
+		}
+		EffPolygons.push_back(PolygonExt2(point_count, px, py, index_name));
+
+		infile.close();
+		++path_ite;
+	}
+
+
+	polygon_ite = polygons.begin();
+	while(polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int point_count = polygon_ite->point_count_;
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			int shared_by = polygon_ite->np_[i].shared_by_;
+			double geox = px[i];
+			double geoy = py[i];
+			if (shared_by >= 3)
+			{
+				Paths polys(shared_by);
+				auto tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
+					PolygonExt2(0, NULL, NULL, polygon_ite->index_name_));
+				if (tempoly == EffPolygons.end())
+				{
+					return;
+				}
+				for (int n = 0; n < tempoly->point_count_; ++n)
+				{
+					polys[0]<<IntPoint(tempoly->px_[n]*10, tempoly->py_[n]*10);
+				}
+				for (int s = 0; s < shared_by-1; ++s)
+				{
+					tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
+						PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[s]));
+					if (tempoly == EffPolygons.end())
+					{
+						return;
+					}
+					for (int n = 0; n < tempoly->point_count_; ++n)
+					{
+						polys[s+1]<<IntPoint(tempoly->px_[n]*10, tempoly->py_[n]*10);
+					}
+				}
+				Paths result;
+				Clipper clip;
+				clip.AddPath(polys[0], ptSubject, true);
+				for (int p = 1; p < shared_by; ++p)
+				{
+					clip.AddPath(polys[p], ptClip, true);
+					clip.Execute(ctIntersection, result);
+					if (p != shared_by-1)
+					{
+						clip.Clear();
+						clip.AddPath(result[0], ptSubject, true);
+						result.clear();
+					}
+				}
+				double* limit_poly_x = new double[shared_by];
+				double* limit_poly_y = new double[shared_by];
+				memset(limit_poly_x, 0, sizeof(double)*shared_by);
+				memset(limit_poly_y, 0, sizeof(double)*shared_by);
+
+				limit_poly_x[0] = px[(i+1)%point_count];
+				limit_poly_y[0] = py[(i+1)%point_count];
+				limit_poly_x[1] = px[(i-1+point_count)%point_count];
+				limit_poly_y[1] = py[(i-1+point_count)%point_count];
+				//获取相邻点所围成的区域点
+				if (shared_by == 3)
+				{
+					auto limit_ite = std::find(polygons.begin(), polygons.end(),
+						PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[0]));
+					if (limit_ite != polygons.end())
+					{
+						int temp_count = limit_ite->point_count_;
+						for (int count = 0; count < temp_count; ++count)
+						{
+							if (fabs(limit_ite->px_[count]-px[i]) < 0.000001 &&
+								fabs(limit_ite->py_[count]-py[i]) < 0.000001)
+							{
+								if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[0]) < 0.000001 &&
+									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[0]) < 0.000001)
+								{
+									limit_poly_x[2] = limit_ite->px_[(count+1)%temp_count];
+									limit_poly_y[2] = limit_ite->py_[(count+1)%temp_count];
+									break;
+								}
+								else if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[1]) < 0.000001 &&
+									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[1]) < 0.000001)
+								{
+									limit_poly_x[2] = limit_ite->px_[(count+1)%temp_count];
+									limit_poly_y[2] = limit_ite->py_[(count+1)%temp_count];
+									break;
+								}
+								else
+								{
+									if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[0]) < 0.000001 &&
+										fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[0]) < 0.000001)
+									{
+										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
+										break;
+									}
+									else if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[1]) < 0.000001 &&
+										fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[1]) < 0.000001)
+									{
+										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
+										break;
+									}
+									else
+									{
+										return;
+									}
+								}
+							}
+						}
+					}
+				}
+				else if (shared_by == 4)
+				{
+					for (int temp = 0; temp < 2; ++temp)
+					{
+						auto limit_ite = std::find(polygons.begin(), polygons.end(),
+							PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[temp]));
+						if (limit_ite == polygons.end())
+						{
+							return;
+						}
+						int temp_count = limit_ite->point_count_;
+						for (int count = 0; count < temp_count; ++count)
+						{
+							if (fabs(limit_ite->px_[count]-px[i]) < 0.000001 &&
+								fabs(limit_ite->py_[count]-py[i]) < 0.000001)
+							{
+								if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[0]) < 0.000001 &&
+									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[0]) < 0.000001)
+								{
+									if (limit_poly_x[2] == 0)
+									{
+										limit_poly_x[2] = limit_ite->px_[(count+1)%temp_count];
+										limit_poly_y[2] = limit_ite->py_[(count+1)%temp_count];
+									}
+									else
+									{
+										limit_poly_x[3] = limit_ite->px_[(count+1)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
+									}
+								}
+								else if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[1]) < 0.000001 &&
+									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[1]) < 0.000001)
+								{
+									if (limit_poly_x[2] == 0)
+									{
+										limit_poly_x[2] = limit_ite->px_[(count+1)%temp_count];
+										limit_poly_y[2] = limit_ite->py_[(count+1)%temp_count];
+									}
+									else
+									{
+										limit_poly_x[3] = limit_ite->px_[(count+1)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
+									}
+								}
+								else if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[2]) < 0.000001 &&
+									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[2]) < 0.000001)
+								{
+									limit_poly_x[3] = limit_ite->px_[(count+1)%temp_count];
+									limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
+								}
+								else
+								{
+									if (limit_poly_x[2] == 0)
+									{
+										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
+									}
+									else
+									{
+										limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
+									}
+								}
+
+								if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[0]) < 0.000001 &&
+									fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[0]) < 0.000001)
+								{
+									if (limit_poly_x[2] == 0)
+									{
+										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
+									}
+									else
+									{
+										limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
+									}
+								}
+								else if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[1]) < 0.000001 &&
+									fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[1]) < 0.000001)
+								{
+									if (limit_poly_x[2] == 0)
+									{
+										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
+									}
+									else
+									{
+										limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
+									}
+								}
+								else if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[2]) < 0.000001 &&
+									fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[2]) < 0.000001)
+								{
+									if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[0]) > 0.000001 &&
+										fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[0]) > 0.000001 &&
+										fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[1]) > 0.000001 &&
+										fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[1]) > 0.000001)
+									{
+										limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
+									}
+								}
+								else
+								{
+									if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[0]) > 0.000001 &&
+										fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[0]) > 0.000001 &&
+										fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[1]) > 0.000001 &&
+										fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[1]) > 0.000001)
+									{
+										limit_poly_x[3] = limit_ite->px_[(count+1)%temp_count];
+										limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
+									}
+								}
+
+								if (limit_poly_x[2] == 0)
+								{
+									return;
+								}
+								else if (limit_poly_x[3] != 0)
+								{
+									break;
+								}
+							}
+						}
+					}
+				}
+				else
+				{
+					return;
+				}//获取区域结束
+
+				if (shared_by == 4)
+				{
+					double d1 = 0, d2 = 0, d3 = 3, d4 = 0;
+					d1 = (limit_poly_x[2]-limit_poly_x[1])*(limit_poly_y[0]-limit_poly_y[1])
+						-(limit_poly_x[0]-limit_poly_x[1])*(limit_poly_y[2]-limit_poly_y[1]);
+					d2 = (limit_poly_x[2]-limit_poly_x[1])*(limit_poly_y[3]-limit_poly_y[1])
+						-(limit_poly_x[3]-limit_poly_x[1])*(limit_poly_y[2]-limit_poly_y[1]);
+					d3 = (limit_poly_x[3]-limit_poly_x[0])*(limit_poly_y[1]-limit_poly_y[0])
+						-(limit_poly_x[1]-limit_poly_x[0])*(limit_poly_y[3]-limit_poly_y[0]);
+					d4 = (limit_poly_x[3]-limit_poly_x[0])*(limit_poly_y[2]-limit_poly_y[0])
+						-(limit_poly_x[2]-limit_poly_x[0])*(limit_poly_y[3]-limit_poly_y[0]);
+					if (d1*d2 < 0 && d3*d4 < 0)
+					{
+						double temp = limit_poly_x[2];
+						limit_poly_x[2] = limit_poly_x[3];
+						limit_poly_x[3] = temp;
+						temp = limit_poly_y[2];
+						limit_poly_y[2] = limit_poly_y[3];
+						limit_poly_y[3] = temp;
+					}
+				}
+
+				Path poly;
+				for (int count = 0; count < shared_by; ++count)
+				{
+					poly<<IntPoint(limit_poly_x[count]*10, limit_poly_y[count]*10);
+				}
+
+				clip.Clear();
+				clip.AddPath(result[0], ptSubject, true);
+				result.clear();
+				clip.AddPath(poly, ptClip, true);
+				clip.Execute(ctIntersection, result);
+
+				delete []limit_poly_x;
+				delete []limit_poly_y;
+				limit_poly_x = NULL;
+				limit_poly_y = NULL;
+
+				if (result.size() == 1)
+				{
+					int count = result[0].size();
+					double* tempx = new double[count];
+					double* tempy = new double[count];
+					memset(tempx, 0, sizeof(double)*count);
+					memset(tempy, 0, sizeof(double)*count);
+					for (int p = 0; p < count; ++p)
+					{
+						tempx[p] = result[0][p].X/10.0;
+						tempy[p] = result[0][p].Y/10.0;
+					}
+
+					if (-1 == PtInRegionEx(geox, geoy, tempx, tempy, count, 0.000001))
+					{
+						int min_index_1 = 0, min_index_2 = 0;
+						double min_distance_1 = 0, min_distance_2 = 0;
+
+						for (int m = 0; m < count; ++m)
+						{
+							double temp_distance = CalDistance(geox, geoy, tempx[m], tempy[m]);
+							if (min_distance_1 == 0 || min_distance_1 > temp_distance)
+							{
+								min_distance_2 = min_distance_1;
+								min_index_2 = min_index_1;
+								min_distance_1 = temp_distance;
+								min_index_1 = m;
+							}
+							else if (min_distance_2 == 0 || min_distance_2 > temp_distance)
+							{
+								min_distance_2 = temp_distance;
+								min_index_2 = m;
+							}
+						}
+						double new_geox = 0, new_geoy = 0;
+						if (abs(min_index_1-min_index_2) == 1)
+						{
+							new_geox = tempx[min_index_1]*min_distance_2/(min_distance_1+min_distance_2)+
+								tempx[min_index_2]*min_distance_1/(min_distance_1+min_distance_2);
+							new_geoy = tempy[min_index_1]*min_distance_2/(min_distance_1+min_distance_2)+
+								tempy[min_index_2]*min_distance_1/(min_distance_1+min_distance_2);
+						}
+						else
+						{
+							int next_index = (min_index_1+1)%count;
+							double temp_distance = CalDistance(geox, geoy, tempx[next_index], tempy[next_index]);
+							new_geox = tempx[min_index_1]*temp_distance/(min_distance_1+temp_distance)+
+								tempx[next_index]*min_distance_1/(min_distance_1+temp_distance);
+							new_geoy = new_geoy = tempy[min_index_1]*temp_distance/(min_distance_1+temp_distance)+
+								tempy[next_index]*min_distance_1/(min_distance_1+temp_distance);
+						}
+
+						auto poly = polygons.begin();
+						while (poly != polygons.end())
+						{
+							poly->ResetPoint("", geox, geoy, new_geox, new_geoy);
+							++poly;
+						}
+					}
+					delete []tempx;
+					tempx = NULL;
+					delete []tempy;
+					tempy = NULL;
+				}
+				else if (result.size() > 0)
+				{
+					//AfxMessageBox("Some thing went wrong!");
+				}
+				else
+				{
+					//AfxMessageBox("No intersection!");
+				}
+			}
+		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
 		polygon_ite->Output("D:\\output\\");
 		//polygon_ite->Free();
 		++polygon_ite;
@@ -1888,7 +2289,7 @@ void CRsDoc::OnOptimize()
 	ParsePolygon();
 	UpdateAllViews(NULL);
 
-	//OutputResultImg(polygons);
+	OutputResultImg(polygons);
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
@@ -2133,11 +2534,6 @@ void CRsDoc::OnEffectpoly()
 
 	ParseEffective();
 	UpdateAllViews(NULL);
-}
-
-double CalDistance(double x1, double y1, double x2, double y2)
-{
-	return (x2-x1)*(x2-x1)+(y2-y1)*(y2-y1);
 }
 
 void CRsDoc::OnOptimize2()

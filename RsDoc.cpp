@@ -1664,7 +1664,7 @@ void CRsDoc::OnOptimize()
 	IImageX* tempImage = NULL;
 	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
 
-	const int blockArea = 50;
+	const int blockArea = 100;
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
@@ -1696,13 +1696,16 @@ void CRsDoc::OnOptimize()
 			float fx = 0, fy = 0;
 			pImage->World2Image(geox, geoy, &fx, &fy);
 			unsigned char height;
-			pImage->GetPixel((int)fy, (int)fx, &height);
+			//pImage->GetPixel((int)fy, (int)fx, &height);
+			pImage->ReadImg((int)fx, (int)fy, (int)(fx+1), (int)(fy+1),
+				&height, 1, 1, 1, 0, 0,
+				1, 1, -1, 0);
 			if (height == 0)
 			{
 				continue;
 			}
 			RectFExt result_result = the_rect;
-			if (polygon_ite->np_[i].shared_by_ != 1)
+			if (polygon_ite->np_[i].shared_by_ >= 2)
 			{
 				for (int j = 0; j < polygon_ite->np_[i].shared_by_-1; ++j)
 				{
@@ -1763,18 +1766,23 @@ void CRsDoc::OnOptimize()
 
 				for (int f = start_col-1; f >= 0; --f)
 				{
+					if (buf[start_row*buffer_width+f] != 0 && ncount != 0)
+					{
+						break;
+					}
 					if (buf[start_row*buffer_width+f] == 0)
 					{
 						++ncount;
 						if (ncount >= count_limit)
 						{
 							isFind = true;
-							std::for_each(polygons.begin(), polygons.end(),
-								[&](PolygonExt2 & poly)
+							auto poly = polygons.begin();
+							while (poly != polygons.end())
 							{
-								poly.ResetPoint("", geox, geoy,
+								poly->ResetPoint("", geox, geoy,
 									geox-(start_col-f)*resolution, geoy);
-							});
+								++poly;
+							}
 							break;
 						}
 					}
@@ -1784,18 +1792,23 @@ void CRsDoc::OnOptimize()
 					ncount = 0;
 					for (int f = start_col+1; start_col < buffer_width; ++f)
 					{
+						if (buf[start_row*buffer_width+f] != 0 && ncount != 0)
+						{
+							break;
+						}
 						if (buf[start_row*buffer_width+f] == 0)
 						{
 							++ncount;
 							if (ncount >= count_limit)
 							{
 								isFind = true;
-								std::for_each(polygons.begin(), polygons.end(),
-									[&](PolygonExt2 & poly)
+								auto poly = polygons.begin();
+								while (poly != polygons.end())
 								{
-									poly.ResetPoint("", geox, geoy,
+									poly->ResetPoint("", geox, geoy,
 										geox+(f-start_col)*resolution, geoy);
-								});
+									++poly;
+								}
 								break;
 							}
 						}
@@ -1806,18 +1819,23 @@ void CRsDoc::OnOptimize()
 					ncount = 0;
 					for (int f = start_row-1; f >= 0; --f)
 					{
+						if (buf[start_row*buffer_width+f] != 0 && ncount != 0)
+						{
+							break;
+						}
 						if (buf[f*buffer_width+start_row] == 0)
 						{
 							++ncount;
 							if (ncount >= count_limit)
 							{
 								isFind = true;
-								std::for_each(polygons.begin(), polygons.end(),
-									[&](PolygonExt2 & poly)
+								auto poly = polygons.begin();
+								while (poly != polygons.end())
 								{
-									poly.ResetPoint("", geox, geoy,
+									poly->ResetPoint("", geox, geoy,
 										geox, geoy-(start_row-f)*resolution);
-								});
+									++poly;
+								}
 								break;
 							}
 						}
@@ -1828,23 +1846,30 @@ void CRsDoc::OnOptimize()
 					ncount = 0;
 					for (int f = start_row+1; f < buffer_height; ++f)
 					{
+						if (buf[start_row*buffer_width+f] != 0 && ncount != 0)
+						{
+							break;
+						}
 						if (buf[f*buffer_width+start_row] == 0)
 						{
 							++ncount;
 							if (ncount >= count_limit)
 							{
 								isFind = true;
-								std::for_each(polygons.begin(), polygons.end(),
-									[&](PolygonExt2 & poly)
+								auto poly = polygons.begin();
+								while (poly != polygons.end())
 								{
-									poly.ResetPoint("", geox, geoy,
+									poly->ResetPoint("", geox, geoy,
 										geox, geoy+(f-start_row)*resolution);
-								});
+									++poly;
+								}
 								break;
 							}
 						}
 					}
 				}
+				delete []buf;
+				buf = NULL;
 			}
 		}
 		++polygon_ite;
@@ -1853,14 +1878,24 @@ void CRsDoc::OnOptimize()
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
-		//polygon_ite->DeletePoint();
 		polygon_ite->Output("D:\\output\\");
-		polygon_ite->Free();
+		//polygon_ite->Free();
 		++polygon_ite;
 	}
 
+
+
 	ParsePolygon();
 	UpdateAllViews(NULL);
+
+	//OutputResultImg(polygons);
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		//polygon_ite->Output("D:\\output\\");
+		polygon_ite->Free();
+		++polygon_ite;
+	}
 }
 
 double GetDistance(double pointx, double pointy, double linestartx, double linestarty, 
@@ -2588,11 +2623,13 @@ void CRsDoc::OnOptimize2()
 								tempy[next_index]*min_distance_1/(min_distance_1+temp_distance);
 						}
 
-						std::for_each(polygons.begin(), polygons.end(),
-							[&](PolygonExt2& poly)
+						auto poly = polygons.begin();
+						while (poly != polygons.end())
 						{
-							poly.ResetPoint("", geox, geoy, new_geox, new_geoy);
-						});
+							poly->ResetPoint("", geox, geoy, new_geox, new_geoy);
+							++poly;
+						}
+
 						/*int not_in_count = 0;
 						for (int s = 0; s < shared_by-1; ++s)
 						{

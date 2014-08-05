@@ -140,8 +140,8 @@ void CRsView::OnInitialUpdate()
 
 void CRsView::OnRButtonUp(UINT /* nFlags */, CPoint point)
 {
-	ClientToScreen(&point);
-	OnContextMenu(this, point);
+	//ClientToScreen(&point);
+	//OnContextMenu(this, point);
 }
 
 void CRsView::OnContextMenu(CWnd* /* pWnd */, CPoint point)

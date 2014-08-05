@@ -32,7 +32,7 @@ struct RectFExt
 	double Height(){return (top-bottom);}
 	bool IsEmpty()
 	{
-		if (right-left == 0 || top-bottom == 0)
+		if (fabs(right-left) < 0.000001 || fabs(top-bottom) < 0.000001)
 		{
 			return true;
 		}
@@ -209,7 +209,7 @@ struct PolygonExt2
 		{
 			for (int i = 0; i < point_count_; ++i)
 			{
-				if (px_[i] == px && py_[i] == py)
+				if (fabs(px_[i]-px) < 0.000001 && fabs(py_[i]-py) < 0.000001)
 				{
 					px_[i] = newx;
 					py_[i] = newy;

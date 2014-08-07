@@ -51,6 +51,7 @@
 
 #import "ImageX.tlb" no_namespace, named_guids
 #import "CoMosaic.tlb" no_namespace, named_guids
+#import "dikb_shortest_paths.tlb" no_namespace, named_guids
 
 #include <vector>
 

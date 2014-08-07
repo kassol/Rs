@@ -2059,8 +2059,26 @@ void CRsDoc::OnOptimize()
 	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&pImage);
 	pImage->Open(_bstr_t("D:\\out.tif"), modeRead);
 	double resolution = 0;
-	double temp;
-	pImage->GetGrdInfo(&temp, &temp, &resolution);
+	double lfXOrigin = 0, lfYOrigin = 0;
+	pImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &resolution);
+	int nWidth = 0, nHeight = 0;
+	pImage->GetCols(&nWidth);
+	pImage->GetRows(&nHeight);
+	double lfXEnd = 0, lfYEnd = 0;
+	lfXEnd = lfXOrigin+nWidth*resolution;
+	lfYEnd = lfYOrigin+nHeight*resolution;
+
+	double pEdgex[4];
+	double pEdgey[4];
+
+	pEdgex[0] = lfXOrigin;
+	pEdgex[1] = lfXOrigin;
+	pEdgex[2] = lfXEnd;
+	pEdgex[3] = lfXEnd;
+	pEdgey[0] = lfYEnd;
+	pEdgey[1] = lfYOrigin;
+	pEdgey[2] = lfYOrigin;
+	pEdgey[3] = lfYEnd;
 
 	IImageX* tempImage = NULL;
 	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
@@ -2276,6 +2294,105 @@ void CRsDoc::OnOptimize()
 		++polygon_ite;
 	}
 
+	IShortPaths* shortpath = NULL;
+
+	CoCreateInstance(CLSID_ShortPaths, NULL, CLSCTX_ALL, IID_IShortPaths, (void**)&shortpath);
+
+#define NEXT(a) ((a+1==polygon_ite->np_.end()) ? (polygon_ite->np_.begin()) : (a+1))
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int point_count = polygon_ite->point_count_;
+
+		auto ite = polygon_ite->np_.begin();
+		int point_index = 0;
+		while (ite != polygon_ite->np_.end())
+		{
+			if (ite->shared_by_ > 1 && ite->available_)
+			{
+				if ((NEXT(ite))->shared_by_ > 1 && (NEXT(ite))->available_)
+				{
+					if (-1 != PtInRegionEx(px[point_index], py[point_index], pEdgex, pEdgey, 4, 0.000001) &&
+						-1 != PtInRegionEx(px[point_index+1], py[point_index+1], pEdgex, pEdgey, 4, 0.000001))
+					{
+						//找出另一关联影像
+						CString strIndexName = "";
+						for (int name_index = 0; name_index < ite->shared_by_-1; ++name_index)
+						{
+							for (int name_index2 = 0; name_index2 < (NEXT(ite))->shared_by_-1; ++name_index2)
+							{
+								if (ite->index_name_n_[name_index] == (NEXT(ite))->index_name_n_[name_index2])
+								{
+									strIndexName = ite->index_name_n_[name_index];
+									break;
+								}
+							}
+							if (strIndexName != "")
+							{
+								break;
+							}
+						}
+
+						//取有效多边形求交
+						auto poly = std::find(EffPolygons.begin(), EffPolygons.end(),
+							PolygonExt2(0, NULL, NULL, polygon_ite->index_name_));
+						if (poly == EffPolygons.end())
+						{
+							return;
+						}
+						Path subj;
+						for (int count = 0; count < poly->point_count_; ++count)
+						{
+							subj<<IntPoint(int(poly->px_[count]*10), int(poly->py_[count]*10));
+						}
+						poly = std::find(EffPolygons.begin(), EffPolygons.end(),
+							PolygonExt2(0, NULL, NULL, strIndexName));
+						if (poly == EffPolygons.end())
+						{
+							return;
+						}
+						Path clip;
+						for (int count = 0; count < poly->point_count_; ++count)
+						{
+							clip<<IntPoint(int(poly->px_[count]*10), int(poly->py_[count]*10));
+						}
+
+						Clipper c;
+						c.AddPath(subj, ptSubject, true);
+						c.AddPath(clip, ptClip, true);
+						Paths result;
+						c.Execute(ctIntersection, result);
+						if (result.size() == 0)
+						{
+							return;
+						}
+
+						int effect_point_count = result[0].size();
+						double* tempx = new double[effect_point_count];
+						memset(tempx, 0, sizeof(double)*effect_point_count);
+						double* tempy = new double[effect_point_count];
+						memset(tempy, 0, sizeof(double)*effect_point_count);
+
+						for (int count = 0; count < effect_point_count; ++count)
+						{
+							tempx[count] = result[0][count].X/10.0;
+							tempy[count] = result[0][count].Y/10.0;
+						}
+
+						//最短路径
+					}
+				}
+			}
+			++point_index;
+			++ite;
+		}
+
+		++polygon_ite;
+	}
+
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
@@ -2284,12 +2401,14 @@ void CRsDoc::OnOptimize()
 		++polygon_ite;
 	}
 
-
+	pImage->Close();
+	pImage->Release();
+	tempImage->Release();
 
 	ParsePolygon();
 	UpdateAllViews(NULL);
 
-	OutputResultImg(polygons);
+	//OutputResultImg(polygons);
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{

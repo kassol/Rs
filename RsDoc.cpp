@@ -2309,6 +2309,7 @@ void CRsDoc::OnOptimize()
 
 		auto ite = polygon_ite->np_.begin();
 		int point_index = 0;
+
 		while (ite != polygon_ite->np_.end())
 		{
 			if (ite->shared_by_ > 1 && ite->available_)
@@ -2316,7 +2317,7 @@ void CRsDoc::OnOptimize()
 				if ((NEXT(ite))->shared_by_ > 1 && (NEXT(ite))->available_)
 				{
 					if (-1 != PtInRegionEx(px[point_index], py[point_index], pEdgex, pEdgey, 4, 0.000001) &&
-						-1 != PtInRegionEx(px[point_index+1], py[point_index+1], pEdgex, pEdgey, 4, 0.000001))
+						-1 != PtInRegionEx(px[(point_index+1)%point_count], py[(point_index+1)%point_count], pEdgex, pEdgey, 4, 0.000001))
 					{
 						//找出另一关联影像
 						CString strIndexName = "";
@@ -2341,7 +2342,7 @@ void CRsDoc::OnOptimize()
 							PolygonExt2(0, NULL, NULL, polygon_ite->index_name_));
 						if (poly == EffPolygons.end())
 						{
-							return;
+							continue;
 						}
 						Path subj;
 						for (int count = 0; count < poly->point_count_; ++count)
@@ -2352,7 +2353,7 @@ void CRsDoc::OnOptimize()
 							PolygonExt2(0, NULL, NULL, strIndexName));
 						if (poly == EffPolygons.end())
 						{
-							return;
+							continue;
 						}
 						Path clip;
 						for (int count = 0; count < poly->point_count_; ++count)
@@ -2367,7 +2368,7 @@ void CRsDoc::OnOptimize()
 						c.Execute(ctIntersection, result);
 						if (result.size() == 0)
 						{
-							return;
+							continue;
 						}
 
 						int effect_point_count = result[0].size();
@@ -2383,6 +2384,32 @@ void CRsDoc::OnOptimize()
 						}
 
 						//最短路径
+						double* lpXout = NULL;
+						double* lpYout = NULL;
+						long point_count_out = 0;
+
+						shortpath->ShortestPathviaPoly(_bstr_t("D:\\out.dem"), px[point_index], py[point_index],
+							px[(point_index+1)%point_count], py[(point_index+1)%point_count], tempx, tempy, effect_point_count,
+							&lpXout, &lpYout, &point_count_out);
+
+						if (point_count_out != 0)
+						{
+							auto temp_ite = polygons.begin();
+							while (temp_ite != polygons.end())
+							{
+								temp_ite->InsertPoints(px[point_index], py[point_index],
+									px[(point_index+1)%point_count], py[(point_index+1)%point_count],
+									lpXout, lpYout, point_count_out, strIndexName);
+								++temp_ite;
+							}
+							ite = polygon_ite->np_.begin();
+							delete []lpXout;
+							lpXout = NULL;
+							delete []lpYout;
+							lpYout = NULL;
+							point_index = 0;
+							continue;
+						}
 					}
 				}
 			}

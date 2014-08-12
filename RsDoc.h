@@ -217,6 +217,57 @@ struct PolygonExt2
 			}
 		}
 	}
+	void InsertPoints(double startx, double starty, double endx, double endy, double* pxin, double* pyin, long point_count, CString strIndex)
+	{
+		long new_point_count_ = point_count+point_count_;
+		double* new_px_  = new double[new_point_count_];
+		memset(new_px_, 0, sizeof(double)*new_point_count_);
+		double* new_py_ = new double[new_point_count_];
+		memset(new_py_, 0, sizeof(double)*new_point_count_);
+		auto ite = np_.begin();
+		for (int i = 0; i < point_count_; ++i)
+		{
+			if (fabs(startx-px_[i]) < 0.000001 && fabs(starty-py_[i]) < 0.000001)
+			{
+				if (fabs(endx-px_[(i+1)%point_count_]) < 0.000001 && fabs(endy-py_[(i+1)%point_count_]) < 0.000001)
+				{
+					memcpy(new_px_, px_, sizeof(double)*(i+1));
+					memcpy(new_py_, py_, sizeof(double)*(i+1));
+					memcpy(new_px_+i+1, pxin, sizeof(double)*point_count);
+					memcpy(new_py_+i+1, pyin, sizeof(double)*point_count);
+					std::vector<NodeProperty> np;
+
+					NodeProperty temp_np(2);
+					temp_np.available_ = false;
+					temp_np.index_name_n_[0] = strIndex;
+
+					for (int index = 0; index <point_count; ++index)
+					{
+						np.push_back(temp_np);
+					}
+
+					if (i != point_count_-1)
+					{
+						memcpy(new_px_+i+1+point_count, px_+i+1, sizeof(double)*(point_count_-i-1));
+						memcpy(new_py_+i+1+point_count, py_+i+1, sizeof(double)*(point_count_-i-1));
+					}
+
+					np_.insert(ite+1, np.begin(), np.end());
+					delete []px_;
+					delete []py_;
+					px_ = new_px_;
+					py_ = new_py_;
+					point_count_ = new_point_count_;
+					return;
+				}
+			}
+			++ite;
+		}
+		delete []new_px_;
+		new_px_ = NULL;
+		delete []new_py_;
+		new_py_ = NULL;
+	}
 	void Free()
 	{
 		delete []px_;

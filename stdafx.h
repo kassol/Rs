@@ -63,8 +63,8 @@ extern GLuint g_tex;
 
 //#include <vld.h>
 
-#define _CRTDBG_MAP_ALLOC
-#include <crtdbg.h>
+//#define _CRTDBG_MAP_ALLOC
+//#include <crtdbg.h>
 
 
 #define _SnapSame(x1, x2, lfSnap)		(0==lfSnap?x1==x2:fabs(x1-x2)<lfSnap)

@@ -2399,7 +2399,7 @@ void CRsDoc::OnOptimize()
 							{
 								temp_ite->InsertPoints(px[point_index], py[point_index],
 									px[(point_index+1)%point_count], py[(point_index+1)%point_count],
-									lpXout, lpYout, point_count_out, strIndexName);
+									lpXout, lpYout, point_count_out, strIndexName, polygon_ite->index_name_);
 								++temp_ite;
 							}
 							ite = polygon_ite->np_.begin();

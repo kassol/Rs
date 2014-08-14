@@ -217,7 +217,7 @@ struct PolygonExt2
 			}
 		}
 	}
-	void InsertPoints(double startx, double starty, double endx, double endy, double* pxin, double* pyin, long point_count, CString strIndex)
+	void InsertPoints(double startx, double starty, double endx, double endy, double* pxin, double* pyin, long point_count, CString strIndex, CString strIndex2)
 	{
 		long new_point_count_ = point_count+point_count_;
 		double* new_px_  = new double[new_point_count_];
@@ -239,7 +239,14 @@ struct PolygonExt2
 
 					NodeProperty temp_np(2);
 					temp_np.available_ = false;
-					temp_np.index_name_n_[0] = strIndex;
+					if (index_name_.CompareNoCase(strIndex) == 0)
+					{
+						temp_np.index_name_n_[0] = strIndex2;
+					}
+					else if (index_name_.CompareNoCase(strIndex2) == 0)
+					{
+						temp_np.index_name_n_[0] = strIndex;
+					}
 
 					for (int index = 0; index <point_count; ++index)
 					{
@@ -258,6 +265,25 @@ struct PolygonExt2
 					px_ = new_px_;
 					py_ = new_py_;
 					point_count_ = new_point_count_;
+					return;
+				}
+				else if (fabs(endx-px_[(i-1+point_count_)%point_count_]) < 0.000001 && fabs(endy-py_[(i-1+point_count_)%point_count_]) < 0.000001)
+				{
+					double* temp_px = new double[point_count];
+					double* temp_py = new double[point_count];
+					memset(temp_px, 0, sizeof(double)*point_count);
+					memset(temp_py, 0, sizeof(double)*point_count);
+					for (int n = 0; n < point_count; ++n)
+					{
+						temp_px[n] = pxin[point_count-n-1];
+						temp_py[n] = pyin[point_count-n-1];
+					}
+					InsertPoints(endx, endy, startx, starty, temp_px, temp_py, point_count, strIndex, strIndex2);
+
+					delete []temp_px;
+					delete []temp_py;
+					temp_px = NULL;
+					temp_py = NULL;
 					return;
 				}
 			}

@@ -599,14 +599,14 @@ void CRsDoc::FillData(RectFExt rect)
 				}
 				else
 				{
-// 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-// 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nRed, 0);
-// 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-// 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nGreen, 1);
-// 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-// 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nBlue, 2);
 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
-						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, -1, 0);
+						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nRed, 0);
+					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nGreen, 1);
+					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nBlue, 2);
+// 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+// 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, -1, 0);
 				}
 				m_pImage->Close();
 			}
@@ -2364,8 +2364,41 @@ void CRsDoc::OnOptimize()
 						Clipper c;
 						c.AddPath(subj, ptSubject, true);
 						c.AddPath(clip, ptClip, true);
+						Paths effect;
+						c.Execute(ctIntersection, effect);
+
+						subj.clear();
+						clip.clear();
+						c.Clear();
+
+						for (int count = 0; count < polygon_ite->point_count_; ++count)
+						{
+							subj<<IntPoint(int(polygon_ite->px_[count]*10), int(polygon_ite->py_[count]*10));
+						}
+
+						poly = std::find(polygons.begin(), polygons.end(),
+							PolygonExt2(0, NULL, NULL, strIndexName));
+						if (poly == polygons.end())
+						{
+							continue;
+						}
+						for (int count = 0; count < poly->point_count_; ++count)
+						{
+							clip<<IntPoint(int(poly->px_[count]*10), int(poly->py_[count]*10));
+						}
+
+						c.AddPath(subj, ptSubject, true);
+						c.AddPath(clip, ptClip, true);
+						Paths temp;
+						c.Execute(ctUnion, temp);
+
+						c.Clear();
+
+						c.AddPaths(effect, ptSubject, true);
+						c.AddPaths(temp, ptClip, true);
 						Paths result;
 						c.Execute(ctIntersection, result);
+
 						if (result.size() == 0)
 						{
 							continue;

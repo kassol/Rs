@@ -2181,7 +2181,7 @@ void CRsDoc::OnOptimize()
 				}
 				bool isFind = false;
 				int ncount = 0;
-				const int count_limit = 7;
+				const int count_limit = 10;
 
 				for (int f = start_col-1; f >= 0; --f)
 				{
@@ -2424,14 +2424,62 @@ void CRsDoc::OnOptimize()
 						shortpath->ShortestPathviaPoly(_bstr_t("D:\\out.dem"), px[point_index], py[point_index],
 							px[(point_index+1)%point_count], py[(point_index+1)%point_count], tempx, tempy, effect_point_count,
 							&lpXout, &lpYout, &point_count_out);
+						delete []tempx;
+						tempx = NULL;
+						delete []tempy;
+						tempy = NULL;
+						//É¾µã
+						/*if (point_count_out != 0)
+						{
+							int union_point_count = temp[0].size();
+							double* unionx = new double[union_point_count];
+							memset(unionx, 0, sizeof(double)*union_point_count);
+							double* uniony = new double[union_point_count];
+							memset(uniony, 0, sizeof(double)*union_point_count);
+							for (int count = 0; count < union_point_count; ++count)
+							{
+								unionx[count] = temp[0][count].X/10.0;
+								uniony[count] = temp[0][count].Y/10.0;
+							}
+							std::vector<double> tmpvecx;
+							std::vector<double> tmpvecy;
+							for (int count_out = 0; count_out < point_count_out; ++count_out)
+							{
+								if (1 == PtInRegionEx(lpXout[count_out], lpYout[count_out], unionx, uniony, union_point_count, 0.000001))
+								{
+									tmpvecx.push_back(lpXout[count_out]);
+									tmpvecy.push_back(lpYout[count_out]);
+								}
+							}
+							delete []unionx;
+							unionx = NULL;
+							delete []uniony;
+							uniony = NULL;
 
+							point_count_out = tmpvecx.size();
+							delete []lpXout;
+							delete []lpYout;
+							lpXout = new double[point_count_out];
+							lpYout = new double[point_count_out];
+							for (int count = 0; count < point_count_out; ++count)
+							{
+								lpXout[count] = tmpvecx[count];
+								lpYout[count] = tmpvecy[count];
+							}
+							tmpvecx.clear();
+							tmpvecy.clear();
+						}//É¾µã½áÊø
+						*/
 						if (point_count_out != 0)
 						{
+							double startx = px[point_index];
+							double starty = py[point_index];
+							double endx = px[(point_index+1)%point_count];
+							double endy = py[(point_index+1)%point_count];
 							auto temp_ite = polygons.begin();
 							while (temp_ite != polygons.end())
 							{
-								temp_ite->InsertPoints(px[point_index], py[point_index],
-									px[(point_index+1)%point_count], py[(point_index+1)%point_count],
+								temp_ite->InsertPoints(startx, starty, endx, endy,
 									lpXout, lpYout, point_count_out, strIndexName, polygon_ite->index_name_);
 								++temp_ite;
 							}
@@ -2441,6 +2489,9 @@ void CRsDoc::OnOptimize()
 							delete []lpYout;
 							lpYout = NULL;
 							point_index = 0;
+							px = polygon_ite->px_;
+							py = polygon_ite->py_;
+							point_count = polygon_ite->point_count_;
 							continue;
 						}
 					}

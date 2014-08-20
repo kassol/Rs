@@ -2181,7 +2181,7 @@ void CRsDoc::OnOptimize()
 				}
 				bool isFind = false;
 				int ncount = 0;
-				const int count_limit = 10;
+				const int count_limit = 5;
 
 				for (int f = start_col-1; f >= 0; --f)
 				{
@@ -2501,6 +2501,44 @@ void CRsDoc::OnOptimize()
 			++ite;
 		}
 
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int point_count = polygon_ite->point_count_;
+		for (int count = 0; count < point_count; ++count)
+		{
+			if (polygon_ite->np_[count].available_ == false)
+			{
+				auto polygon_ite2 = polygons.begin();
+				bool isin = false;
+				while (polygon_ite2 != polygons.end())
+				{
+					CString strID = polygon_ite2->index_name_;
+					if (strID.CompareNoCase(polygon_ite->np_[count].index_name_n_[0]) != 0 &&
+						strID.CompareNoCase(polygon_ite->index_name_) != 0)
+					{
+						isin |= (-1 != PtInRegionEx(px[count], py[count], polygon_ite2->px_, polygon_ite2->py_, polygon_ite2->point_count_, 0.00001));
+					}
+					++polygon_ite2;
+				}
+				if (!isin)
+				{
+					polygon_ite->np_[count].available_ = true;
+				}
+			}
+		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		polygon_ite->DeletePoint();
 		++polygon_ite;
 	}
 

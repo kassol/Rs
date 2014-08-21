@@ -571,6 +571,8 @@ public:
 	void ParsePolygon();
 	void ParseEffective();
 	void OutputResultImg(std::vector<PolygonExt2>& polygons);
+	bool LineCrossPolygon(std::vector<double*>& vecx, std::vector<double*>& vecy, std::vector<int>& point_num, double px1, double py1, double px2, double py2);
+	bool LineCrossLine(double px1, double py1, double px2, double py2, double px3, double py3, double px4, double py4);
 
 
 // 生成的消息映射函数

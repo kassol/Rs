@@ -2115,7 +2115,6 @@ void CRsDoc::OnOptimize()
 			float fx = 0, fy = 0;
 			pImage->World2Image(geox, geoy, &fx, &fy);
 			unsigned char height;
-			//pImage->GetPixel((int)fy, (int)fx, &height);
 			pImage->ReadImg((int)fx, (int)fy, (int)(fx+1), (int)(fy+1),
 				&height, 1, 1, 1, 0, 0,
 				1, 1, -1, 0);
@@ -2183,26 +2182,30 @@ void CRsDoc::OnOptimize()
 				int ncount = 0;
 				const int count_limit = 5;
 
-				for (int f = start_col-1; f >= 0; --f)
+				if (!isFind)
 				{
-					if (buf[start_row*buffer_width+f] != 0 && ncount != 0)
+					ncount = 0;
+					for (int f = start_col-1; f >= 0; --f)
 					{
-						break;
-					}
-					if (buf[start_row*buffer_width+f] == 0)
-					{
-						++ncount;
-						if (ncount >= count_limit)
+						if (buf[start_row*buffer_width+f] != 0 && ncount != 0)
 						{
-							isFind = true;
-							auto poly = polygons.begin();
-							while (poly != polygons.end())
-							{
-								poly->ResetPoint("", geox, geoy,
-									geox-(start_col-f)*resolution, geoy);
-								++poly;
-							}
 							break;
+						}
+						if (buf[start_row*buffer_width+f] == 0)
+						{
+							++ncount;
+							if (ncount >= count_limit)
+							{
+								isFind = true;
+								auto poly = polygons.begin();
+								while (poly != polygons.end())
+								{
+									poly->ResetPoint("", geox, geoy,
+										geox-(start_col-f)*resolution, geoy);
+									++poly;
+								}
+								break;
+							}
 						}
 					}
 				}
@@ -2294,6 +2297,57 @@ void CRsDoc::OnOptimize()
 		++polygon_ite;
 	}
 
+	CString strDxf = _T("D:\\data\\resample\\房屋.dxf");
+
+	std::vector<int> vecPointNum;
+	std::vector<double*> vecX;
+	std::vector<double*> vecY;
+
+	if (m_dxffile.Create() && m_dxffile.LoadDXFFile(strDxf) == TRUE)
+	{
+		ENTITYHEADER EntityHeader;
+		char	 EntityData[4096];
+		OBJHANDLE hEntity;
+		hEntity = m_dxffile.FindEntity(FIND_FIRST, &EntityHeader, EntityData, NULL);
+
+		double lfMinx = 0, lfMiny = 0, lfMaxx = 0, lfMaxy = 0;
+
+		while (hEntity)
+		{
+			switch(EntityHeader.EntityType)
+			{
+			case ENT_POLYLINE:
+			case ENT_LINE3D:
+				{
+					PENTPOLYLINE pPolyline = (PENTPOLYLINE)EntityData;
+					int nVertexNum = pPolyline->nVertex;
+					if (nVertexNum > 2)
+					{
+						double *pX = new double[pPolyline->nVertex];
+						double *pY = new double[pPolyline->nVertex];
+						vecPointNum.push_back(pPolyline->nVertex);
+
+						memset(pX, 0, pPolyline->nVertex*sizeof(double));
+						memset(pY, 0, pPolyline->nVertex*sizeof(double));
+
+						double minx = 0, miny = 0, maxx = 0, maxy = 0;
+						double *ppX = new double[5];
+						double *ppY = new double[5];
+						for (int nIndex = 0; nIndex < pPolyline->nVertex; ++ nIndex)
+						{
+							pX[nIndex] = pPolyline->pVertex[nIndex].Point.x;
+							pY[nIndex] = pPolyline->pVertex[nIndex].Point.y;
+						}
+						vecX.push_back(pX);
+						vecY.push_back(pY);
+					}
+				}
+			}
+			hEntity = m_dxffile.FindEntity(FIND_NEXT, &EntityHeader, EntityData, NULL);
+		}
+		m_dxffile.Destroy();
+	}
+
 	IShortPaths* shortpath = NULL;
 
 	CoCreateInstance(CLSID_ShortPaths, NULL, CLSCTX_ALL, IID_IShortPaths, (void**)&shortpath);
@@ -2319,6 +2373,17 @@ void CRsDoc::OnOptimize()
 					if (-1 != PtInRegionEx(px[point_index], py[point_index], pEdgex, pEdgey, 4, 0.000001) &&
 						-1 != PtInRegionEx(px[(point_index+1)%point_count], py[(point_index+1)%point_count], pEdgex, pEdgey, 4, 0.000001))
 					{
+						//判断连线本身是否穿过任何建筑物
+						bool is_cross_building = LineCrossPolygon(vecX, vecY, vecPointNum,
+							px[point_index], py[point_index], px[(point_index+1)%point_count], py[(point_index+1)%point_count]);
+
+						if (is_cross_building == false)
+						{
+							++point_index;
+							++ite;
+							continue;
+						}
+
 						//找出另一关联影像
 						CString strIndexName = "";
 						for (int name_index = 0; name_index < ite->shared_by_-1; ++name_index)
@@ -2470,7 +2535,7 @@ void CRsDoc::OnOptimize()
 							tmpvecy.clear();
 						}//删点结束
 						*/
-						if (point_count_out != 0)
+						if (point_count_out >= 2)
 						{
 							double startx = px[point_index];
 							double starty = py[point_index];
@@ -3522,4 +3587,50 @@ void CRsDoc::OutputResultImg(std::vector<PolygonExt2>& polygons)
 	pImage->Close();
 	pImage->Release();
 	AfxMessageBox("Finished!");
+}
+
+bool CRsDoc::LineCrossPolygon(std::vector<double*>& vecx, std::vector<double*>& vecy, std::vector<int>& point_num, double px1, double py1, double px2, double py2)
+{
+	auto itex = vecx.begin();
+	auto itey = vecy.begin();
+	auto ite_point_count = point_num.begin();
+	while (itex != vecx.end())
+	{
+// 		if (-1 != PtInRegionEx(px1, py1, *itex, *itey, *ite_point_count, 0.00001))
+// 		{
+// 			return true;
+// 		}
+// 		if (-1 != PtInRegionEx(px2, py2, *itex, *itey, *ite_point_count, 0.00001))
+// 		{
+// 			return true;
+// 		}
+		for (int count = 0; count <*ite_point_count; ++count)
+		{
+			if (LineCrossLine(px1, py1, px2, py2, (*itex)[count], (*itey)[count],
+				(*itex)[(count+1)%(*ite_point_count)], (*itey)[(count+1)%(*ite_point_count)]))
+			{
+				return true;
+			}
+		}
+
+		++itex;
+		++itey;
+		++ite_point_count;
+	}
+	return false;
+}
+
+bool CRsDoc::LineCrossLine(double px1, double py1, double px2, double py2, double px3, double py3, double px4, double py4)
+{
+	double d1 = 0, d2 = 0, d3 = 0, d4 = 0;
+
+	d1 = (px2-px1)*(py3-py1)-(px3-px1)*(py2-py1);
+	d2 = (px2-px1)*(py4-py1)-(px4-px1)*(py2-py1);
+	d3 = (px4-px3)*(py1-py3)-(px1-px3)*(py4-py3);
+	d4 = (px4-px3)*(py2-py3)-(px2-px3)*(py4-py3);
+	if (d1*d2 < 0 && d3*d4 < 0)
+	{
+		return true;
+	}
+	return false;
 }

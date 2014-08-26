@@ -1684,7 +1684,7 @@ void CRsDoc::OnOptimize()
 		++path_ite;
 	}
 
-
+	
 	polygon_ite = polygons.begin();
 	while(polygon_ite != polygons.end())
 	{
@@ -2147,6 +2147,14 @@ void CRsDoc::OnOptimize()
 
 					result_result = result_result.Intersected(temp_rect);
 				}
+
+				//获取公共区域的中心
+				double intersect_center_x = 0, intersect_center_y = 0;
+				intersect_center_x = (result_result.left+result_result.right)/2;
+				intersect_center_y = (result_result.top+result_result.bottom)/2;
+
+
+				//限制buffer范围
 				RectFExt buf_rect;
 				buf_rect.left = px[i]-blockArea*resolution;
 				buf_rect.right = px[i]+blockArea*resolution;
@@ -2164,6 +2172,10 @@ void CRsDoc::OnOptimize()
 				pImage->World2Image(buf_rect.right, buf_rect.top,
 					&buffer_right, &buffer_bottom);
 
+				float intersect_center_buffer_x = 0, intersect_center_buffer_y = 0;
+				pImage->World2Image(intersect_center_x, intersect_center_y,
+					&intersect_center_buffer_x, &intersect_center_buffer_y);
+
 				int buffer_height = int(buffer_bottom-buffer_top+0.99999);
 				int buffer_width = int(buffer_right-buffer_left+0.99999);
 
@@ -2174,14 +2186,186 @@ void CRsDoc::OnOptimize()
 					buffer_width, buffer_height, -1, 0);
 				int start_col = int(fx-buffer_left+0.99999);
 				int start_row = int(fy-buffer_top+0.99999);
+				int end_col = int(intersect_center_buffer_x-buffer_left+0.99999);
+				int end_row = int(intersect_center_buffer_y-buffer_top+0.99999);
+
 				if (start_col >= buffer_width || start_row >= buffer_height)
 				{
+					delete []buf;
+					buf = NULL;
 					continue;
 				}
 				bool isFind = false;
 				int ncount = 0;
-				const int count_limit = 5;
+				const int count_limit = 8;
 
+				//往公共区域中心移点
+				int xoff = 0, yoff = 0;
+				xoff = end_col-start_col;
+				yoff = end_row-start_row;
+				double xite = 0, yite = 0;
+
+				if (abs(xoff) > abs(yoff)  && xoff != 0)
+				{
+					yite = yoff/(double)abs(xoff);
+					xite = xoff > 0 ? 1 : -1;
+				}
+				else if (abs(yoff) > abs(xoff) && yoff != 0)
+				{
+					xite = xoff/(double)abs(yoff);
+					yite = yoff > 0 ? 1 : -1;
+				}
+				else if (xoff = 0)
+				{
+					xite = 0;
+					yite = yoff >= 0 ? 1 : -1;
+				}
+				else if (yoff = 0)
+				{
+					yite = 0;
+					xite = xite >= 0 ? 1 : -1;
+				}
+				else if (abs(xoff) == abs(yoff))
+				{
+					xite = xite >= 0 ? 1 : -1;
+					yite = yoff >= 0 ? 1 : -1;
+				}
+
+				int limit_x = 0, limit_y = 0;
+				if (end_col < start_col)
+				{
+					limit_x = min(end_col, 0);
+				}
+				else if (end_col > start_col)
+				{
+					limit_x = max(end_col, buffer_width);
+				}
+				if (limit_x < 0)
+				{
+					limit_x = 0;
+				}
+				else if (limit_x > buffer_width)
+				{
+					limit_x = buffer_width;
+				}
+				if (end_row < start_row)
+				{
+					limit_y = min(end_row, 0);
+				}
+				else if (end_row > start_row)
+				{
+					limit_y = max(end_row, buffer_height);
+				}
+				if (limit_y < 0)
+				{
+					limit_y = 0;
+				}
+				else if (limit_y > buffer_height)
+				{
+					limit_y = buffer_height;
+				}
+
+				double findx = start_col, findy = start_row;
+				if (xite == 0)
+				{
+					while ((findy-limit_y)*(findy-yite-limit_y) > 0)
+					{
+						if (buf[int(findy)*buffer_width+int(findx)] != 0)
+						{
+							ncount = 0;
+						}
+						else
+						{
+							++ncount;
+							if (ncount >= count_limit)
+							{
+								isFind = true;
+								auto poly = polygons.begin();
+								while (poly != polygons.end())
+								{
+									poly->ResetPoint("", geox, geoy,
+										geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+									++poly;
+								}
+								break;
+							}
+						}
+						findy += yite;
+						if (findy < 0 || int(findy) >= buffer_width)
+						{
+							break;
+						}
+					}
+				}
+				else if (yite == 0)
+				{
+					while ((findx-limit_x)*(findx-xite-limit_x) > 0)
+					{
+						if (buf[int(findy)*buffer_width+int(findx)] != 0)
+						{
+							ncount = 0;
+						}
+						else
+						{
+							++ncount;
+							if (ncount >= count_limit)
+							{
+								isFind = true;
+								auto poly = polygons.begin();
+								while (poly != polygons.end())
+								{
+									poly->ResetPoint("", geox, geoy,
+										geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+									++poly;
+								}
+								break;
+							}
+						}
+						findx += xite;
+						if (findx < 0 || int(findx) >= buffer_width)
+						{
+							break;
+						}
+					}
+				}
+				else
+				{
+					while ((findx-limit_x)*(findx-xite-limit_x) > 0 && (findy-limit_y)*(findy-yite-limit_y) > 0)
+					{
+						if (buf[int(findy)*buffer_width+int(findx)] != 0)
+						{
+							ncount = 0;
+						}
+						else
+						{
+							++ncount;
+							if (ncount >= count_limit)
+							{
+								isFind = true;
+								auto poly = polygons.begin();
+								while (poly != polygons.end())
+								{
+									poly->ResetPoint("", geox, geoy,
+										geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+									++poly;
+								}
+								break;
+							}
+						}
+						findy += yite;
+						findx += xite;
+						if (findx < 0 || int(findx) >= buffer_width)
+						{
+							break;
+						}
+						if (findy < 0 || int(findy) >= buffer_width)
+						{
+							break;
+						}
+					}
+				}
+
+				/*
 				if (!isFind)
 				{
 					ncount = 0;
@@ -2289,7 +2473,7 @@ void CRsDoc::OnOptimize()
 							}
 						}
 					}
-				}
+				}*/
 				delete []buf;
 				buf = NULL;
 			}

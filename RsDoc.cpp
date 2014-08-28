@@ -2556,156 +2556,287 @@ void CRsDoc::OnOptimize()
 			{
 				if ((NEXT(ite))->shared_by_ > 1 && (NEXT(ite))->available_)
 				{
-					if (-1 != PtInRegionEx(px[point_index], py[point_index], pEdgex, pEdgey, 4, 0.000001) &&
-						-1 != PtInRegionEx(px[(point_index+1)%point_count], py[(point_index+1)%point_count], pEdgex, pEdgey, 4, 0.000001))
+					double short_start_x = 0, short_start_y = 0, short_end_x = 0, short_end_y = 0;
+					if (-1 != PtInRegionEx(px[point_index], py[point_index], pEdgex, pEdgey, 4, 1e-5) &&
+						-1 != PtInRegionEx(px[(point_index+1)%point_count], py[(point_index+1)%point_count], pEdgex, pEdgey, 4, 1e-5))
 					{
-						//判断连线本身是否穿过任何建筑物
-						bool is_cross_building = LineCrossPolygon(vecX, vecY, vecPointNum,
-							px[point_index], py[point_index], px[(point_index+1)%point_count], py[(point_index+1)%point_count]);
-
-						if (is_cross_building == false)
+						short_start_x = px[point_index];
+						short_start_y = py[point_index];
+						short_end_x = px[(point_index+1)%point_count];
+						short_end_y = py[(point_index+1)%point_count];
+					}
+					else
+					{
+						double result_x = 0, result_y = 0;
+						if (GetCrossPoint(px[point_index], py[point_index], px[(point_index+1)%point_count],
+							py[(point_index+1)%point_count], pEdgex, pEdgey, 4, result_x, result_y))
+						{
+							if (-1 != PtInRegionEx(px[point_index], py[point_index], pEdgex, pEdgey, 4, 1e-5))
+							{
+								short_start_x = px[point_index];
+								short_start_y = py[point_index];
+								short_end_x = result_x;
+								short_end_y = result_y;
+							}
+							else if (-1 != PtInRegionEx(px[(point_index+1)%point_count], py[(point_index+1)%point_count], pEdgex, pEdgey, 4, 1e-5))
+							{
+								short_start_x = result_x;
+								short_start_y = result_y;
+								short_end_x = px[(point_index+1)%point_count];
+								short_end_y = py[(point_index+1)%point_count];
+							}
+							else
+							{
+								++point_index;
+								++ite;
+								continue;
+							}
+						}
+						else
 						{
 							++point_index;
 							++ite;
 							continue;
 						}
+					}
 
-						//找出另一关联影像
-						CString strIndexName = "";
-						for (int name_index = 0; name_index < ite->shared_by_-1; ++name_index)
+					//判断连线本身是否穿过任何建筑物
+					bool is_cross_building = LineCrossPolygon(vecX, vecY, vecPointNum,
+						short_start_x, short_start_y, short_end_x, short_end_y);
+
+					if (is_cross_building == false)
+					{
+						++point_index;
+						++ite;
+						continue;
+					}
+
+					//找出另一关联影像
+					CString strIndexName = "";
+					for (int name_index = 0; name_index < ite->shared_by_-1; ++name_index)
+					{
+						for (int name_index2 = 0; name_index2 < (NEXT(ite))->shared_by_-1; ++name_index2)
 						{
-							for (int name_index2 = 0; name_index2 < (NEXT(ite))->shared_by_-1; ++name_index2)
+							if (ite->index_name_n_[name_index] == (NEXT(ite))->index_name_n_[name_index2])
 							{
-								if (ite->index_name_n_[name_index] == (NEXT(ite))->index_name_n_[name_index2])
-								{
-									strIndexName = ite->index_name_n_[name_index];
-									break;
-								}
-							}
-							if (strIndexName != "")
-							{
+								strIndexName = ite->index_name_n_[name_index];
 								break;
 							}
 						}
-
-						//取有效多边形求交
-						auto poly = std::find(EffPolygons.begin(), EffPolygons.end(),
-							PolygonExt2(0, NULL, NULL, polygon_ite->index_name_));
-						if (poly == EffPolygons.end())
+						if (strIndexName != "")
 						{
-							continue;
-						}
-						Path subj;
-						for (int count = 0; count < poly->point_count_; ++count)
-						{
-							subj<<IntPoint(int(poly->px_[count]*10), int(poly->py_[count]*10));
-						}
-						poly = std::find(EffPolygons.begin(), EffPolygons.end(),
-							PolygonExt2(0, NULL, NULL, strIndexName));
-						if (poly == EffPolygons.end())
-						{
-							continue;
-						}
-						Path clip;
-						for (int count = 0; count < poly->point_count_; ++count)
-						{
-							clip<<IntPoint(int(poly->px_[count]*10), int(poly->py_[count]*10));
-						}
-
-						Clipper c;
-						c.AddPath(subj, ptSubject, true);
-						c.AddPath(clip, ptClip, true);
-						Paths effect;
-						c.Execute(ctIntersection, effect);
-
-						subj.clear();
-						clip.clear();
-						c.Clear();
-
-						for (int count = 0; count < polygon_ite->point_count_; ++count)
-						{
-							subj<<IntPoint(int(polygon_ite->px_[count]*10), int(polygon_ite->py_[count]*10));
-						}
-
-						poly = std::find(polygons.begin(), polygons.end(),
-							PolygonExt2(0, NULL, NULL, strIndexName));
-						if (poly == polygons.end())
-						{
-							continue;
-						}
-						for (int count = 0; count < poly->point_count_; ++count)
-						{
-							clip<<IntPoint(int(poly->px_[count]*10), int(poly->py_[count]*10));
-						}
-
-						c.AddPath(subj, ptSubject, true);
-						c.AddPath(clip, ptClip, true);
-						Paths temp;
-						c.Execute(ctUnion, temp);
-
-						c.Clear();
-
-						c.AddPaths(effect, ptSubject, true);
-						c.AddPaths(temp, ptClip, true);
-						Paths result;
-						c.Execute(ctIntersection, result);
-
-						if (result.size() == 0)
-						{
-							continue;
-						}
-
-						int effect_point_count = result[0].size();
-						double* tempx = new double[effect_point_count];
-						memset(tempx, 0, sizeof(double)*effect_point_count);
-						double* tempy = new double[effect_point_count];
-						memset(tempy, 0, sizeof(double)*effect_point_count);
-
-						for (int count = 0; count < effect_point_count; ++count)
-						{
-							tempx[count] = result[0][count].X/10.0;
-							tempy[count] = result[0][count].Y/10.0;
-						}
-
-						//最短路径
-						double* lpXout = NULL;
-						double* lpYout = NULL;
-						long point_count_out = 0;
-
-						shortpath->ShortestPathviaPoly(_bstr_t("D:\\out.dem"), px[point_index], py[point_index],
-							px[(point_index+1)%point_count], py[(point_index+1)%point_count], tempx, tempy, effect_point_count,
-							&lpXout, &lpYout, &point_count_out);
-
-						delete []tempx;
-						tempx = NULL;
-						delete []tempy;
-						tempy = NULL;
-
-						if (point_count_out >= 2)
-						{
-							double startx = px[point_index];
-							double starty = py[point_index];
-							double endx = px[(point_index+1)%point_count];
-							double endy = py[(point_index+1)%point_count];
-							auto temp_ite = polygons.begin();
-							while (temp_ite != polygons.end())
-							{
-								temp_ite->InsertPoints(startx, starty, endx, endy,
-									lpXout, lpYout, point_count_out, strIndexName, polygon_ite->index_name_);
-								++temp_ite;
-							}
-							ite = polygon_ite->np_.begin();
-							delete []lpXout;
-							lpXout = NULL;
-							delete []lpYout;
-							lpYout = NULL;
-							point_index = 0;
-							px = polygon_ite->px_;
-							py = polygon_ite->py_;
-							point_count = polygon_ite->point_count_;
-							continue;
+							break;
 						}
 					}
+
+					//取有效多边形求交
+					auto poly = std::find(EffPolygons.begin(), EffPolygons.end(),
+						PolygonExt2(0, NULL, NULL, polygon_ite->index_name_));
+					if (poly == EffPolygons.end())
+					{
+						continue;
+					}
+					Path subj;
+					for (int count = 0; count < poly->point_count_; ++count)
+					{
+						subj<<IntPoint(int(poly->px_[count]*10), int(poly->py_[count]*10));
+					}
+					poly = std::find(EffPolygons.begin(), EffPolygons.end(),
+						PolygonExt2(0, NULL, NULL, strIndexName));
+					if (poly == EffPolygons.end())
+					{
+						continue;
+					}
+					Path clip;
+					for (int count = 0; count < poly->point_count_; ++count)
+					{
+						clip<<IntPoint(int(poly->px_[count]*10), int(poly->py_[count]*10));
+					}
+
+					Clipper c;
+					c.AddPath(subj, ptSubject, true);
+					c.AddPath(clip, ptClip, true);
+					Paths effect;
+					c.Execute(ctIntersection, effect);
+
+					subj.clear();
+					clip.clear();
+					c.Clear();
+
+					for (int count = 0; count < polygon_ite->point_count_; ++count)
+					{
+						subj<<IntPoint(int(polygon_ite->px_[count]*10), int(polygon_ite->py_[count]*10));
+					}
+
+					poly = std::find(polygons.begin(), polygons.end(),
+						PolygonExt2(0, NULL, NULL, strIndexName));
+					if (poly == polygons.end())
+					{
+						continue;
+					}
+					for (int count = 0; count < poly->point_count_; ++count)
+					{
+						clip<<IntPoint(int(poly->px_[count]*10), int(poly->py_[count]*10));
+					}
+
+					c.AddPath(subj, ptSubject, true);
+					c.AddPath(clip, ptClip, true);
+					Paths temp;
+					c.Execute(ctUnion, temp);
+
+					c.Clear();
+
+					c.AddPaths(effect, ptSubject, true);
+					c.AddPaths(temp, ptClip, true);
+					Paths result;
+					c.Execute(ctIntersection, result);
+
+					if (result.size() == 0)
+					{
+						continue;
+					}
+
+					int effect_point_count = result[0].size();
+					double* tempx = new double[effect_point_count];
+					memset(tempx, 0, sizeof(double)*effect_point_count);
+					double* tempy = new double[effect_point_count];
+					memset(tempy, 0, sizeof(double)*effect_point_count);
+
+					for (int count = 0; count < effect_point_count; ++count)
+					{
+						tempx[count] = result[0][count].X/10.0;
+						tempy[count] = result[0][count].Y/10.0;
+					}
+
+					//最短路径
+					double* lpXout = NULL;
+					double* lpYout = NULL;
+					long point_count_out = 0;
+
+					if(S_FALSE == shortpath->ShortestPathviaPoly(_bstr_t("D:\\out.dem"), short_start_x, short_start_y,
+						short_end_x, short_end_y, tempx, tempy, effect_point_count,
+						&lpXout, &lpYout, &point_count_out))
+					{
+						//返回错误则取图幅范围相交区域和起始点连线的交点作为另一个点走最短路径
+						CString image_path = path+polygon_ite->index_name_+_T(".tif");
+						tempImage->Open(image_path.AllocSysString(), modeRead);
+						RectFExt the_rect;
+						int nXSize = 0, nYSize = 0;
+						double lfCellSize = 0;
+						double lfXOrigin = 0, lfYOrigin = 0;
+
+						tempImage->GetCols(&nXSize);
+						tempImage->GetRows(&nYSize);
+						tempImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfCellSize);
+						tempImage->Close();
+
+						the_rect.left = lfXOrigin;
+						the_rect.right = lfXOrigin+nXSize*lfCellSize;
+						the_rect.bottom = lfYOrigin;
+						the_rect.top = lfYOrigin+nYSize*lfCellSize;
+
+						RectFExt result_result = the_rect;
+						for (int j = 0; j < ite->shared_by_-1; ++j)
+						{
+							image_path = path+ite->index_name_n_[j]+_T(".tif");
+							tempImage->Open(image_path.AllocSysString(), modeRead);
+							RectFExt temp_rect;
+
+							int nx = 0, ny = 0;
+							double cellsize = 0;
+							double xorigin = 0, yorigin = 0;
+
+							tempImage->GetCols(&nx);
+							tempImage->GetRows(&ny);
+							tempImage->GetGrdInfo(&xorigin, &yorigin, &cellsize);
+							tempImage->Close();
+
+							temp_rect.left = xorigin;
+							temp_rect.right = xorigin+nx*cellsize;
+							temp_rect.bottom = yorigin;
+							temp_rect.top = yorigin+ny*cellsize;
+
+							result_result = result_result.Intersected(temp_rect);
+						}
+
+						double rect_x[4];
+						double rect_y[4];
+						rect_x[0] = result_result.left;
+						rect_x[1] = result_result.left;
+						rect_x[2] = result_result.right;
+						rect_x[3] = result_result.right;
+						rect_y[0] = result_result.top;
+						rect_y[1] = result_result.bottom;
+						rect_y[2] = result_result.bottom;
+						rect_y[3] = result_result.top;
+						double result_x = 0, result_y = 0;
+						if (GetCrossPoint(short_start_x, short_start_y, short_end_x, short_end_y, rect_x, rect_y, 4, result_x, result_y))
+						{
+							if (-1 != PtInRegionEx(short_start_x, short_start_y, rect_x, rect_y, 4, 1e-5))
+							{
+								short_end_x = result_x;
+								short_end_y = result_y;
+							}
+							else if (-1 != PtInRegionEx(short_end_x, short_end_y, rect_x, rect_y, 4, 1e-5))
+							{
+								short_start_x = result_x;
+								short_start_y = result_y;
+							}
+							else
+							{
+								delete []tempx;
+								tempx = NULL;
+								delete []tempy;
+								tempy = NULL;
+								++point_index;
+								++ite;
+								continue;
+							}
+						}
+						else
+						{
+							delete []tempx;
+							tempx = NULL;
+							delete []tempy;
+							tempy = NULL;
+							++point_index;
+							++ite;
+							continue;
+						}
+						shortpath->ShortestPathviaPoly(_bstr_t("D:\\out.dem"), short_start_x, short_start_y,
+							short_end_x, short_end_y, tempx, tempy, effect_point_count,
+							&lpXout, &lpYout, &point_count_out);
+					}
+
+					delete []tempx;
+					tempx = NULL;
+					delete []tempy;
+					tempy = NULL;
+
+					if (point_count_out >= 2)
+					{
+						double startx = px[point_index];
+						double starty = py[point_index];
+						double endx = px[(point_index+1)%point_count];
+						double endy = py[(point_index+1)%point_count];
+						auto temp_ite = polygons.begin();
+						while (temp_ite != polygons.end())
+						{
+							temp_ite->InsertPoints(startx, starty, endx, endy,
+								lpXout, lpYout, point_count_out, strIndexName, polygon_ite->index_name_);
+							++temp_ite;
+						}
+						ite = polygon_ite->np_.begin();
+						delete []lpXout;
+						lpXout = NULL;
+						delete []lpYout;
+						lpYout = NULL;
+						point_index = 0;
+						px = polygon_ite->px_;
+						py = polygon_ite->py_;
+						point_count = polygon_ite->point_count_;
+						continue;
+					}//插点结束
 				}
 			}
 			++point_index;
@@ -3777,6 +3908,53 @@ bool CRsDoc::LineCrossLine(double px1, double py1, double px2, double py2, doubl
 	if (d1*d2 < 0 && d3*d4 < 0)
 	{
 		return true;
+	}
+	return false;
+}
+
+bool CRsDoc::GetCrossPoint(double px1, double py1, double px2, double py2, double* px, double* py, int point_num, double& result_x, double& result_y)
+{
+	for (int count = 0; count < point_num; ++count)
+	{
+		if (LineCrossLine(px1, py1, px2, py2, px[count], py[count],
+			px[(count+1)%point_num], py[(count+1)%point_num]))
+		{
+			if (fabs(px1-px2) < 1e-5)
+			{
+				if (fabs(py1-py[count]) > 1e-5 ||fabs(py2-py[count]) > 1e-5)
+				{
+					result_x = px1;
+					result_y = py[count];
+					return true;
+				}
+			}
+			else if (fabs(py1-py2) < 1e-5)
+			{
+				if (fabs(px1-px[count]) > 1e-5 || fabs(px2-px[count]) > 1e-5)
+				{
+					result_x = px[count];
+					result_y = py1;
+					return true;
+				}
+			}
+			else
+			{
+				double k = (py1-py2)/(px1-px2);
+				double b = py1-k*px1;
+				if (fabs(px[count]-px[(count+1)%point_num]) < 1e-5)
+				{
+					result_x = px[count];
+					result_y = k*result_x+b;
+					return true;
+				}
+				else if (fabs(py[count]-py[(count+1)%point_num]) < 1e-5)
+				{
+					result_y = py[count];
+					result_x = (result_y-b)/k;
+					return true;
+				}
+			}
+		}
 	}
 	return false;
 }

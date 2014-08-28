@@ -2083,7 +2083,7 @@ void CRsDoc::OnOptimize()
 	IImageX* tempImage = NULL;
 	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
 
-	const int blockArea = 100;
+	//const int blockArea = 50;
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
@@ -2147,6 +2147,8 @@ void CRsDoc::OnOptimize()
 
 					result_result = result_result.Intersected(temp_rect);
 				}
+
+				int blockArea = min(result_result.Width(), result_result.Height())/resolution;
 
 				//获取公共区域的中心
 				double intersect_center_x = 0, intersect_center_y = 0;
@@ -2673,52 +2675,12 @@ void CRsDoc::OnOptimize()
 						shortpath->ShortestPathviaPoly(_bstr_t("D:\\out.dem"), px[point_index], py[point_index],
 							px[(point_index+1)%point_count], py[(point_index+1)%point_count], tempx, tempy, effect_point_count,
 							&lpXout, &lpYout, &point_count_out);
+
 						delete []tempx;
 						tempx = NULL;
 						delete []tempy;
 						tempy = NULL;
-						//删点
-						/*if (point_count_out != 0)
-						{
-							int union_point_count = temp[0].size();
-							double* unionx = new double[union_point_count];
-							memset(unionx, 0, sizeof(double)*union_point_count);
-							double* uniony = new double[union_point_count];
-							memset(uniony, 0, sizeof(double)*union_point_count);
-							for (int count = 0; count < union_point_count; ++count)
-							{
-								unionx[count] = temp[0][count].X/10.0;
-								uniony[count] = temp[0][count].Y/10.0;
-							}
-							std::vector<double> tmpvecx;
-							std::vector<double> tmpvecy;
-							for (int count_out = 0; count_out < point_count_out; ++count_out)
-							{
-								if (1 == PtInRegionEx(lpXout[count_out], lpYout[count_out], unionx, uniony, union_point_count, 0.000001))
-								{
-									tmpvecx.push_back(lpXout[count_out]);
-									tmpvecy.push_back(lpYout[count_out]);
-								}
-							}
-							delete []unionx;
-							unionx = NULL;
-							delete []uniony;
-							uniony = NULL;
 
-							point_count_out = tmpvecx.size();
-							delete []lpXout;
-							delete []lpYout;
-							lpXout = new double[point_count_out];
-							lpYout = new double[point_count_out];
-							for (int count = 0; count < point_count_out; ++count)
-							{
-								lpXout[count] = tmpvecx[count];
-								lpYout[count] = tmpvecy[count];
-							}
-							tmpvecx.clear();
-							tmpvecy.clear();
-						}//删点结束
-						*/
 						if (point_count_out >= 2)
 						{
 							double startx = px[point_index];
@@ -3649,7 +3611,7 @@ void CRsDoc::OnOptimize2()
 
 	ParsePolygon();
 	UpdateAllViews(NULL);
-	OutputResultImg(polygons);
+	//OutputResultImg(polygons);
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{

@@ -2846,6 +2846,24 @@ void CRsDoc::OnOptimize()
 		++polygon_ite;
 	}
 
+	vecPointNum.clear();
+	auto itex = vecX.begin();
+	while (itex != vecX.end())
+	{
+		delete [](*itex);
+		*itex = NULL;
+		++itex;
+	}
+	vecX.clear();
+	auto itey = vecY.begin();
+	while (itey != vecY.end())
+	{
+		delete [](*itey);
+		*itey = NULL;
+		++itey;
+	}
+	vecY.clear();
+
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
@@ -3140,7 +3158,7 @@ void CRsDoc::OnEffectpoly()
 		++ite;
 	}
 	strAllDomPath = strAllDomPath.Left(strAllDomPath.GetLength()-1);
-	OutputEffectivePoly(strAllDomPath, 0);
+	//OutputEffectivePoly(strAllDomPath, 0);
 
 	ParseEffective();
 	UpdateAllViews(NULL);
@@ -3285,11 +3303,11 @@ void CRsDoc::OnOptimize2()
 		++path_ite;
 	}
 
-	/*std::for_each(EffPolygons.begin(), EffPolygons.end(),
-		[&](PolygonExt2& poly)
-	{
-		ConvexHull(poly);
-	});*/
+// 	std::for_each(EffPolygons.begin(), EffPolygons.end(),
+// 		[&](PolygonExt2& poly)
+// 	{
+// 		ConvexHull(poly);
+// 	});
 
 
 	polygon_ite = polygons.begin();

@@ -206,6 +206,7 @@
     <ClInclude Include="BandFormatDlg.h" />
     <ClInclude Include="ChildFrm.h" />
     <ClInclude Include="MainFrm.h" />
+    <ClInclude Include="Optimize.h" />
     <ClInclude Include="RasterPane.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Rs.h" />
@@ -223,6 +224,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="MainFrm.cpp" />
+    <ClCompile Include="Optimize.cpp" />
     <ClCompile Include="RasterPane.cpp" />
     <ClCompile Include="Rs.cpp" />
     <ClCompile Include="RsDoc.cpp" />

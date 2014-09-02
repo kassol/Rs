@@ -29,6 +29,7 @@
 #include <fstream>
 #include "clipper.hpp"
 using namespace ClipperLib;
+/*#include "Optimize.h"*/
 
 
 #ifdef _DEBUG
@@ -342,7 +343,7 @@ void CRsDoc::OnFileOpen()
 		m_pRasterState = new int[m_vecImagePath.size()];
 		for (size_t index = 0; index < m_vecImagePath.size(); ++index)
 		{
-			m_pRasterState[index] = 1;
+			m_pRasterState[index] = 0;
 		}
 		UpdateRasterList();
 		UpdateRasterState();
@@ -1011,7 +1012,7 @@ void CRsDoc::OnAddraster()
 			memcpy(pRasterState, m_pRasterState, sizeof(int)*nOldRasterCount);
 			for (size_t index = nOldRasterCount; index < m_vecImagePath.size(); ++index)
 			{
-				pRasterState[index] = 1;
+				pRasterState[index] = 0;
 			}
 			delete []m_pRasterState;
 			m_pRasterState = pRasterState;
@@ -1539,14 +1540,28 @@ void CRsDoc::OnDxf2dsm()
 	}
 }
 
-double CalDistance(double x1, double y1, double x2, double y2)
-{
-	return (x2-x1)*(x2-x1)+(y2-y1)*(y2-y1);
-}
+// double CalDistance(double x1, double y1, double x2, double y2)
+// {
+// 	return (x2-x1)*(x2-x1)+(y2-y1)*(y2-y1);
+// }
 
 void CRsDoc::OnOptimize()
 {
+	CString strAllDomPath;
 	auto path_ite = m_vecImagePath.begin();
+	while (path_ite != m_vecImagePath.end())
+	{
+		strAllDomPath += *path_ite;
+		strAllDomPath += _T(";");
+		++path_ite;
+	}
+	strAllDomPath = strAllDomPath.Left(strAllDomPath.GetLength()-1);
+	Optimize(strAllDomPath, "D:\\data\\resample\\·¿ÎÝ.dxf", "D:\\output\\");
+
+	ParsePolygon();
+	UpdateAllViews(NULL);
+	return;
+
 	std::fstream infile;
 	std::vector<PolygonExt2> polygons;
 	CString path;
@@ -2927,15 +2942,15 @@ void CRsDoc::OnOptimize()
 	}
 }
 
-double GetDistance(double pointx, double pointy, double linestartx, double linestarty, 
-	double lineendx, double lineendy)
-{
-	double a = linestarty-lineendy;
-	double b = lineendx-linestartx;
-	double c = linestartx*lineendy-lineendx*linestarty;
-
-	return fabs(a*pointx+b*pointy+c)/(sqrt(a*a+b*b));
-}
+// double GetDistance(double pointx, double pointy, double linestartx, double linestarty, 
+// 	double lineendx, double lineendy)
+// {
+// 	double a = linestarty-lineendy;
+// 	double b = lineendx-linestartx;
+// 	double c = linestartx*lineendy-lineendx*linestarty;
+// 
+// 	return fabs(a*pointx+b*pointy+c)/(sqrt(a*a+b*b));
+// }
 
 BOOL OutputEffectivePoly(CString strAllDomPath, int BG_COLOR = 0)
 {

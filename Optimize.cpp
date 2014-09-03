@@ -1276,10 +1276,10 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 							++ite;
 							continue;
 						}
-						shortpath->ShortestPathviaPoly(strDsmPath.AllocSysString(), short_start_x, short_start_y,
-							short_end_x, short_end_y, tempx, tempy, effect_point_count,
-							&lpXout, &lpYout, &point_count_out);
 					}
+					shortpath->ShortestPathviaPoly(strDsmPath.AllocSysString(), short_start_x, short_start_y,
+						short_end_x, short_end_y, tempx, tempy, effect_point_count,
+						&lpXout, &lpYout, &point_count_out);
 
 					delete []tempx;
 					tempx = NULL;

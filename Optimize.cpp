@@ -1740,19 +1740,48 @@ bool Dxf2Dsm(CString strDxf, double tmp_cellsize)
 			while (itex != vecX.end())
 			{
 				int tmp_startx = 0, tmp_starty = 0;
-				int tmp_xsize = 0, tmp_ysize = 0;
+				int tmp_endx = 0, tmp_endy = 0;
 
-				tmp_startx = ((*itexx)[0]-lfXOrigin)/cellsize;
-				for (double y = (*iteyy)[0]; y > (*iteyy)[1]; y -= cellsize)
+				tmp_startx = int(((*itexx)[0]-lfXOrigin)/cellsize-1);
+				tmp_starty = int((lfYEnd-(*iteyy)[0])/cellsize-1);
+				if (tmp_startx < 0)
 				{
-					for (double x = (*itexx)[0]; x < (*itexx)[2]; x += cellsize)
+					tmp_startx = 0;
+				}
+				if (tmp_starty = 0)
+				{
+					tmp_starty = 0;
+				}
+				tmp_endx = int(((*itexx)[2]-lfXOrigin)/cellsize+1);
+				tmp_endy = int((lfYEnd-(*iteyy)[1])/cellsize+1);
+				if (tmp_endx > nXSize)
+				{
+					tmp_endx = nXSize;
+				}
+				if (tmp_endy > nYSize)
+				{
+					tmp_endy = nYSize;
+				}
+				for (int y = tmp_starty; y < tmp_endy; ++y)
+				{
+					for (int x = tmp_startx; x < tmp_endx; ++x)
 					{
-						if (-1 != PtInRegionZXEx(x, y, *itex, *itey, *itenum, 1e-2))
+						if (-1 != PtInRegionZXEx(x*cellsize+lfXOrigin, lfYEnd-y*cellsize, *itex, *itey, *itenum, 1e-2))
 						{
-							pbuf[int((lfYEnd-y)/cellsize+0.5)*nXSize+int((x-lfXOrigin)/cellsize+0.5)] = high;
+							pbuf[y*nXSize+x] = high;
 						}
 					}
 				}
+// 				for (double y = (*iteyy)[0]; y > (*iteyy)[1]; y -= cellsize)
+// 				{
+// 					for (double x = (*itexx)[0]; x < (*itexx)[2]; x += cellsize)
+// 					{
+// 						if (-1 != PtInRegionZXEx(x, y, *itex, *itey, *itenum, 1e-2))
+// 						{
+// 							pbuf[int((lfYEnd-y)/cellsize+0.5)*nXSize+int((x-lfXOrigin)/cellsize+0.5)] = high;
+// 						}
+// 					}
+// 				}
 
 				++itex;
 				++itey;

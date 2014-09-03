@@ -1772,16 +1772,6 @@ bool Dxf2Dsm(CString strDxf, double tmp_cellsize)
 						}
 					}
 				}
-// 				for (double y = (*iteyy)[0]; y > (*iteyy)[1]; y -= cellsize)
-// 				{
-// 					for (double x = (*itexx)[0]; x < (*itexx)[2]; x += cellsize)
-// 					{
-// 						if (-1 != PtInRegionZXEx(x, y, *itex, *itey, *itenum, 1e-2))
-// 						{
-// 							pbuf[int((lfYEnd-y)/cellsize+0.5)*nXSize+int((x-lfXOrigin)/cellsize+0.5)] = high;
-// 						}
-// 					}
-// 				}
 
 				++itex;
 				++itey;

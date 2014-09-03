@@ -1168,9 +1168,8 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 					double* lpYout = NULL;
 					long point_count_out = 0;
 
-					if(S_FALSE == shortpath->ShortestPathviaPoly(strDsmPath.AllocSysString(), short_start_x, short_start_y,
-						short_end_x, short_end_y, tempx, tempy, effect_point_count,
-						&lpXout, &lpYout, &point_count_out))
+					if (-1 != PtInRegionZXEx(short_start_x, short_start_y, tempx, tempy, effect_point_count, 0.07) ||
+						-1 != PtInRegionZXEx(short_end_x, short_end_y, tempx, tempy, effect_point_count, 0.07))
 					{
 						//返回错误则取图幅范围相交区域走最短路径
 						CString image_path = path+polygon_ite->index_name_+_T(".tif");
@@ -1278,7 +1277,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 							continue;
 						}
 						shortpath->ShortestPathviaPoly(strDsmPath.AllocSysString(), short_start_x, short_start_y,
-							short_end_x, short_end_y, rect_x, rect_y, 4,
+							short_end_x, short_end_y, tempx, tempy, effect_point_count,
 							&lpXout, &lpYout, &point_count_out);
 					}
 

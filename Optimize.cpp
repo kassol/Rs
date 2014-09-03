@@ -1191,28 +1191,42 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 						the_rect.top = lfYOrigin+nYSize*lfCellSize;
 
 						RectFExt result_result = the_rect;
+
+						CString strSameIndex = "";
 						for (int j = 0; j < ite->shared_by_-1; ++j)
 						{
-							image_path = path+ite->index_name_n_[j]+_T(".tif");
-							tempImage->Open(image_path.AllocSysString(), modeRead);
-							RectFExt temp_rect;
-
-							int nx = 0, ny = 0;
-							double cellsize = 0;
-							double xorigin = 0, yorigin = 0;
-
-							tempImage->GetCols(&nx);
-							tempImage->GetRows(&ny);
-							tempImage->GetGrdInfo(&xorigin, &yorigin, &cellsize);
-							tempImage->Close();
-
-							temp_rect.left = xorigin;
-							temp_rect.right = xorigin+nx*cellsize;
-							temp_rect.bottom = yorigin;
-							temp_rect.top = yorigin+ny*cellsize;
-
-							result_result = result_result.Intersected(temp_rect);
+							for (int k = 0; k < NEXT(ite)->shared_by_-1; ++k)
+							{
+								if (NEXT(ite)->index_name_n_[k].CompareNoCase(ite->index_name_n_[j]) == 0)
+								{
+									strSameIndex = ite->index_name_n_[j];
+									break;
+								}
+							}
+							if (strSameIndex != "")
+							{
+								break;
+							}
 						}
+						image_path = path+strSameIndex+_T(".tif");
+						tempImage->Open(image_path.AllocSysString(), modeRead);
+						RectFExt temp_rect;
+
+						int nx = 0, ny = 0;
+						double cellsize = 0;
+						double xorigin = 0, yorigin = 0;
+
+						tempImage->GetCols(&nx);
+						tempImage->GetRows(&ny);
+						tempImage->GetGrdInfo(&xorigin, &yorigin, &cellsize);
+						tempImage->Close();
+
+						temp_rect.left = xorigin;
+						temp_rect.right = xorigin+nx*cellsize;
+						temp_rect.bottom = yorigin;
+						temp_rect.top = yorigin+ny*cellsize;
+
+						result_result = result_result.Intersected(temp_rect);
 
 						double rect_x[4];
 						double rect_y[4];

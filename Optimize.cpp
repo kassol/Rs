@@ -29,6 +29,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 {
 	CString path;
 	std::vector<CString> vecImagePath;
+	const double PRECISION = 10.0;
 	
 	while (1)
 	{
@@ -212,7 +213,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 				}
 				for (int n = 0; n < tempoly->point_count_; ++n)
 				{
-					polys[0]<<IntPoint(tempoly->px_[n]*10, tempoly->py_[n]*10);
+					polys[0]<<IntPoint(int(tempoly->px_[n]*PRECISION), int(tempoly->py_[n]*PRECISION));
 				}
 				for (int s = 0; s < shared_by-1; ++s)
 				{
@@ -224,7 +225,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 					}
 					for (int n = 0; n < tempoly->point_count_; ++n)
 					{
-						polys[s+1]<<IntPoint(tempoly->px_[n]*10, tempoly->py_[n]*10);
+						polys[s+1]<<IntPoint(int(tempoly->px_[n]*PRECISION), int(tempoly->py_[n]*PRECISION));
 					}
 				}
 				Paths result;
@@ -480,7 +481,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 				Path poly;
 				for (int count = 0; count < shared_by; ++count)
 				{
-					poly<<IntPoint(limit_poly_x[count]*10, limit_poly_y[count]*10);
+					poly<<IntPoint(int(limit_poly_x[count]*PRECISION), int(limit_poly_y[count]*PRECISION));
 				}
 
 				clip.Clear();
@@ -503,8 +504,8 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 					memset(tempy, 0, sizeof(double)*count);
 					for (int p = 0; p < count; ++p)
 					{
-						tempx[p] = result[0][p].X/10.0;
-						tempy[p] = result[0][p].Y/10.0;
+						tempx[p] = result[0][p].X/PRECISION;
+						tempy[p] = result[0][p].Y/PRECISION;
 					}
 
 					if (-1 == PtInRegionZXEx(geox, geoy, tempx, tempy, count, 0.000001))
@@ -1094,7 +1095,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 					Path subj;
 					for (int count = 0; count < poly->point_count_; ++count)
 					{
-						subj<<IntPoint(int(poly->px_[count]*10), int(poly->py_[count]*10));
+						subj<<IntPoint(int(poly->px_[count]*PRECISION), int(poly->py_[count]*PRECISION));
 					}
 					poly = std::find(EffPolygons.begin(), EffPolygons.end(),
 						PolygonExt2(0, NULL, NULL, strIndexName));
@@ -1105,7 +1106,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 					Path clip;
 					for (int count = 0; count < poly->point_count_; ++count)
 					{
-						clip<<IntPoint(int(poly->px_[count]*10), int(poly->py_[count]*10));
+						clip<<IntPoint(int(poly->px_[count]*PRECISION), int(poly->py_[count]*PRECISION));
 					}
 
 					Clipper c;
@@ -1120,7 +1121,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 
 					for (int count = 0; count < polygon_ite->point_count_; ++count)
 					{
-						subj<<IntPoint(int(polygon_ite->px_[count]*10), int(polygon_ite->py_[count]*10));
+						subj<<IntPoint(int(polygon_ite->px_[count]*PRECISION), int(polygon_ite->py_[count]*PRECISION));
 					}
 
 					poly = std::find(polygons.begin(), polygons.end(),
@@ -1131,7 +1132,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 					}
 					for (int count = 0; count < poly->point_count_; ++count)
 					{
-						clip<<IntPoint(int(poly->px_[count]*10), int(poly->py_[count]*10));
+						clip<<IntPoint(int(poly->px_[count]*PRECISION), int(poly->py_[count]*PRECISION));
 					}
 
 					c.AddPath(subj, ptSubject, true);
@@ -1159,8 +1160,8 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 
 					for (int count = 0; count < effect_point_count; ++count)
 					{
-						tempx[count] = result[0][count].X/10.0;
-						tempy[count] = result[0][count].Y/10.0;
+						tempx[count] = result[0][count].X/PRECISION;
+						tempy[count] = result[0][count].Y/PRECISION;
 					}
 
 					//最短路径

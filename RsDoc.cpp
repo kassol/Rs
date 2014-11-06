@@ -294,7 +294,7 @@ void CRsDoc::OnFileOpen()
 		{
 			CString strFilePath = fdlg.GetNextPathName(pos);
 			m_vecImagePath.push_back(strFilePath);
-			m_pImage->Open(strFilePath.AllocSysString(), modeRead|modeAqlut);
+			HRESULT hr = m_pImage->Open(strFilePath.AllocSysString(), modeRead|modeAqlut);
 			int nCols, nRows;
 			m_pImage->GetCols(&nCols);
 			m_pImage->GetRows(&nRows);
@@ -595,12 +595,12 @@ void CRsDoc::FillData(RectFExt rect)
 				}
 				if (m_bIsGrey)
 				{
-					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+					HRESULT hr = m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, -1, 0);
 				}
 				else
 				{
-					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
+					HRESULT hr = m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nRed, 0);
 					m_pImage->ReadImg((int)nSrcLeft, (int)nSrcTop, (int)nSrcRight, (int)nSrcBottom, m_pBacBuf, 
 						m_nBufWidth, m_nBufHeight, m_nBandNum, left, top, right, bottom, m_nGreen, 1);
@@ -1317,7 +1317,7 @@ void CRsDoc::OnGenerateline()
 		return;
 	}
 	int novaliddomnum;
-	int *index = NULL;
+	int *index = new int[m_vecImagePath.size()];
 	pMosaic->InitialOrthoProMosaicLines(strAllPath.AllocSysString(), _bstr_t("D:\\output\\"), &novaliddomnum, index);
 	ParsePolygon();
 	UpdateAllViews(NULL);
@@ -1556,7 +1556,7 @@ void CRsDoc::OnOptimize()
 		++path_ite;
 	}
 	strAllDomPath = strAllDomPath.Left(strAllDomPath.GetLength()-1);
-	Optimize(strAllDomPath, "D:\\data\\resample\\·¿ÎÝ.dxf", "D:\\output\\");
+	Optimize(strAllDomPath, /*"D:\\data\\resample\\·¿ÎÝ.dxf"*//*"D:\\ass.dxf"*//*"D:\\dlg.dxf"*/"D:\\boxin_dsm.dem", "D:\\output\\");
 
 	ParsePolygon();
 	UpdateAllViews(NULL);

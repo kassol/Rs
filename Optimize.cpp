@@ -11,15 +11,6 @@
 
 using namespace ClipperLib;
 
-double GetDistance(double pointx, double pointy, double linestartx, double linestarty, double lineendx, double lineendy)
-{
-	double a = linestarty-lineendy;
-	double b = lineendx-linestartx;
-	double c = linestartx*lineendy-lineendx*linestarty;
-
-	return fabs(a*pointx+b*pointy+c)/(sqrt(a*a+b*b));
-}
-
 double CalDistance(double x1, double y1, double x2, double y2)
 {
 	return (x2-x1)*(x2-x1)+(y2-y1)*(y2-y1);
@@ -28,6 +19,7 @@ double CalDistance(double x1, double y1, double x2, double y2)
 bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 {
 	CString path;
+	CString strExt;
 	std::vector<CString> vecImagePath;
 	const double PRECISION = 10.0;
 	
@@ -55,6 +47,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	{
 		CString image_path = *path_ite;
 		path = image_path.Left(image_path.ReverseFind('\\')+1);
+		strExt = image_path.Right(image_path.GetLength()-image_path.ReverseFind('.'));
 		CString index_name = image_path.Right(image_path.GetLength()-image_path.ReverseFind('\\')-1);
 		index_name = index_name.Left(index_name.ReverseFind('.'));
 		CString rrlx_path = strRrlxPath+index_name+_T(".rrlx");
@@ -149,6 +142,106 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		}
 		++polygon_ite;
 	}
+
+	//dp增点
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		auto ite = polygon_ite->np_.begin();
+		int index1 = 0;
+		while (ite != polygon_ite->np_.end())
+		{
+			if (ite->shared_by_ == 2)
+			{
+				auto temp_ite = std::find(polygons.begin(), polygons.end(),
+					PolygonExt2(0, NULL, NULL, ite->index_name_n_[0]));
+				for (int index2 = 0; index2 < temp_ite->point_count_; ++index2)
+				{
+					if (fabs(polygon_ite->px_[index1]-temp_ite->px_[index2]) < 1e-5 &&
+						fabs(polygon_ite->py_[index1]-temp_ite->py_[index2]) < 1e-5)
+					{
+						if (temp_ite->np_[index2].available_)
+						{
+							ite->available_ = true;
+						}
+						break;
+					}
+				}
+			}
+			++index1;
+			++ite;
+		}
+
+		vector<int> available_index;
+		for (int index = 0; index < polygon_ite->point_count_; ++index)
+		{
+			if (polygon_ite->np_[index].available_)
+			{
+				available_index.push_back(index);
+			}
+		}
+
+		if (available_index.size() <= 2)
+		{
+			vector<int> available_result(available_index);
+
+			for (unsigned int index = 0; index < available_index.size(); ++index)
+			{
+				if (index != available_index.size()-1)
+				{
+					recurse(polygon_ite->px_, polygon_ite->py_, available_result,
+						available_index[index], available_index[index+1], 128*1.414*0.2, polygon_ite->point_count_);
+				}
+				else
+				{
+					recurse(polygon_ite->px_, polygon_ite->py_, available_result,
+						available_index[index], available_index[0], 128*1.414*0.2, polygon_ite->point_count_);
+				}
+			}
+
+			for (unsigned int index = 0; index < available_result.size(); ++index)
+			{
+				polygon_ite->np_[available_result[index]].available_ = true;
+			}
+
+			available_result.clear();
+		}
+
+		available_index.clear();
+
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		auto ite = polygon_ite->np_.begin();
+		int index1 = 0;
+		while (ite != polygon_ite->np_.end())
+		{
+			if (ite->shared_by_ == 2)
+			{
+				auto temp_ite = std::find(polygons.begin(), polygons.end(),
+					PolygonExt2(0, NULL, NULL, ite->index_name_n_[0]));
+				for (int index2 = 0; index2 < temp_ite->point_count_; ++index2)
+				{
+					if (fabs(polygon_ite->px_[index1]-temp_ite->px_[index2]) < 1e-5 &&
+						fabs(polygon_ite->py_[index1]-temp_ite->py_[index2]) < 1e-5)
+					{
+						if (temp_ite->np_[index2].available_)
+						{
+							ite->available_ = true;
+						}
+						break;
+					}
+				}
+			}
+			++index1;
+			++ite;
+		}
+
+		++polygon_ite;
+	}
 	
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
@@ -156,6 +249,136 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		polygon_ite->DeletePoint();
 		++polygon_ite;
 	}
+
+	IImageX* tempImage = NULL;
+	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int point_count = polygon_ite->point_count_;
+
+		for (int count = 0; count < point_count; ++count)
+		{
+			if (polygon_ite->np_[count].shared_by_ == 2)
+			{
+				auto polygon_ite2 = polygons.begin();
+				bool isin = false;
+				while (polygon_ite2 != polygons.end())
+				{
+					CString strID = polygon_ite2->index_name_;
+					if (strID.CompareNoCase(polygon_ite->np_[count].index_name_n_[0]) != 0 &&
+						strID.CompareNoCase(polygon_ite->index_name_) != 0)
+					{
+						isin |= (-1 != PtInRegionZXEx(px[count], py[count], polygon_ite2->px_, polygon_ite2->py_, polygon_ite2->point_count_, 0.00001));
+						if (isin)
+						{
+							break;
+						}
+					}
+					++polygon_ite2;
+				}
+				if (isin)
+				{
+					CString strImg = path+polygon_ite->index_name_+strExt;
+					tempImage->Open(strImg.AllocSysString(), modeRead);
+					RectFExt rect1;
+					double lfCellsize;
+					tempImage->GetGrdInfo(&rect1.left, &rect1.bottom, &lfCellsize);
+					int ncols = 0, nrows = 0;
+					tempImage->GetCols(&ncols);
+					tempImage->GetRows(&nrows);
+					rect1.right = rect1.left+ncols*lfCellsize;
+					rect1.top = rect1.bottom+nrows*lfCellsize;
+					tempImage->Close();
+
+					RectFExt rect2;
+					strImg = path+polygon_ite->np_[count].index_name_n_[0]+strExt;
+					tempImage->Open(strImg.AllocSysString(), modeRead);
+					tempImage->GetGrdInfo(&rect2.left, &rect2.bottom, &lfCellsize);
+					tempImage->GetCols(&ncols);
+					tempImage->GetRows(&nrows);
+					rect2.right = rect2.left+ncols*lfCellsize;
+					rect2.top = rect2.bottom+nrows*lfCellsize;
+					tempImage->Close();
+
+					RectFExt result_rect = rect1.Intersected(rect2);
+					double center_x = (result_rect.left+result_rect.right)/2;
+					double center_y = (result_rect.top+result_rect.bottom)/2;
+
+					int offsetx = 0, offsety = 0;
+					if (fabs(px[count]-center_x) < fabs(py[count]-center_y))
+					{
+						if (center_y-py[count] < 0)
+						{
+							offsety = -10;
+						}
+						else
+						{
+							offsety = 10;
+						}
+						offsetx = 0;
+					}
+					else
+					{
+						if (center_x-px[count] < 0)
+						{
+							offsetx = -10;
+						}
+						else
+						{
+							offsetx = 10;
+						}
+						offsety = 0;
+					}
+
+					double distance = (px[count]-center_x)*(px[count]-center_x)+(py[count]-center_y)*(py[count]-center_y);
+					double temp_distance = 0;
+					do 
+					{
+						if (-1 == PtInRegionZXEx(px[count]+offsetx, py[count]+offsety, polygon_ite2->px_, polygon_ite2->py_, polygon_ite2->point_count_, 0.00001))
+						{
+							break;
+						}
+						offsetx += offsetx;
+						offsety += offsety;
+						temp_distance = (px[count]+offsetx-center_x)*(px[count]+offsetx-center_x)+(py[count]+offsety-center_y)*(py[count]+offsety-center_y);
+					} while (temp_distance < distance);
+
+					if (-1 == PtInRegionZXEx(px[count]+offsetx, py[count]+offsety, polygon_ite2->px_, polygon_ite2->py_, polygon_ite2->point_count_, 0.00001))
+					{
+						double px_origin = px[count];
+						double py_origin = py[count];
+						polygon_ite2 = polygons.begin();
+						while (polygon_ite2 != polygons.end())
+						{
+							polygon_ite2->ResetPoint("", px_origin, py_origin, px_origin+offsetx, py_origin+offsety);
+							++polygon_ite2;
+						}
+					}
+				}
+			}
+		}
+		++polygon_ite;
+	}
+
+	static int i = 0;
+
+	if (i%2 == 0)
+	{
+		polygon_ite = polygons.begin();
+		while (polygon_ite != polygons.end())
+		{
+			polygon_ite->Output(strRrlxPath.GetBuffer(0));
+			++polygon_ite;
+		}
+
+		++i;
+		return true;
+	}
+	++i;
+	
 	
 // 	if (!EffectPoly(vecImagePath))
 // 	{
@@ -190,7 +413,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	}
 	
 	//根据有效区域移点
-	polygon_ite = polygons.begin();
+	/*polygon_ite = polygons.begin();
 	while(polygon_ite != polygons.end())
 	{
 		double* px = polygon_ite->px_;
@@ -237,7 +460,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 					clip.Execute(ctIntersection, result);
 					if (result.size() == 0)
 					{
-						return false;
+						continue;
 					}
 					if (p != shared_by-1)
 					{
@@ -245,6 +468,11 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 						clip.AddPath(result[0], ptSubject, true);
 						result.clear();
 					}
+				}
+
+				if (result.size() == 0)
+				{
+					continue;
 				}
 				double* limit_poly_x = new double[shared_by];
 				double* limit_poly_y = new double[shared_by];
@@ -304,7 +532,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 										delete []limit_poly_y;
 										limit_poly_x = NULL;
 										limit_poly_y = NULL;
-										return false;
+										break;
 									}
 								}
 							}
@@ -323,7 +551,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 							delete []limit_poly_y;
 							limit_poly_x = NULL;
 							limit_poly_y = NULL;
-							return false;
+							break;
 						}
 						int temp_count = limit_ite->point_count_;
 						for (int count = 0; count < temp_count; ++count)
@@ -437,7 +665,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 									delete []limit_poly_y;
 									limit_poly_x = NULL;
 									limit_poly_y = NULL;
-									return false;
+									break;
 								}
 								else if (limit_poly_x[3] != 0)
 								{
@@ -453,8 +681,13 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 					delete []limit_poly_y;
 					limit_poly_x = NULL;
 					limit_poly_y = NULL;
-					return false;
+					continue;
 				}//获取区域结束
+
+				if (limit_poly_x == NULL)
+				{
+					continue;
+				}
 
 				if (shared_by == 4)
 				{
@@ -559,18 +792,10 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 					delete []tempy;
 					tempy = NULL;
 				}
-				else if (result.size() > 0)
-				{
-					//AfxMessageBox("Some thing went wrong!");
-				}
-				else
-				{
-					//AfxMessageBox("No intersection!");
-				}
 			}
 		}
 		++polygon_ite;
-	}
+	}*/
 	
 	
 	polygon_ite = polygons.begin();
@@ -591,7 +816,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	double tmp_cellsize = 0, tmp = 0;
 	pImage->GetGrdInfo(&tmp, &tmp, &tmp_cellsize);
 	pImage->Close();
-	if (!Dxf2Dsm(strDxfPath, tmp_cellsize))
+	if (strDxfPath.Right(3).CompareNoCase(_T("dxf")) == 0 && !Dxf2Dsm(strDxfPath, tmp_cellsize))
 	{
 		return false;
 	}
@@ -637,17 +862,18 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	pEdgey[2] = lfYOrigin;
 	pEdgey[3] = lfYEnd;
 	
-	IImageX* tempImage = NULL;
+	//IImageX* tempImage = NULL;
 	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
 	
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
+		break;
 		double* px = polygon_ite->px_;
 		double* py = polygon_ite->py_;
 		int num = polygon_ite->point_count_;
 
-		CString image_path = path+polygon_ite->index_name_+_T(".tif");
+		CString image_path = path+polygon_ite->index_name_+strExt;
 		if (S_FALSE == tempImage->Open(image_path.AllocSysString(), modeRead))
 		{
 			tempImage->Release();
@@ -678,7 +904,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 			pImage->ReadImg((int)fx, (int)fy, (int)(fx+1), (int)(fy+1),
 				&height, 1, 1, 1, 0, 0,
 				1, 1, -1, 0);
-			if (height == 0)
+			if (height < 10)
 			{
 				continue;
 			}
@@ -687,7 +913,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 			{
 				for (int j = 0; j < polygon_ite->np_[i].shared_by_-1; ++j)
 				{
-					image_path = path+polygon_ite->np_[i].index_name_n_[j]+_T(".tif");
+					image_path = path+polygon_ite->np_[i].index_name_n_[j]+strExt;
 					tempImage->Open(image_path.AllocSysString(), modeRead);
 					RectFExt temp_rect;
 
@@ -832,7 +1058,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 				{
 					while ((findy-limit_y)*(findy-yite-limit_y) > 0)
 					{
-						if (buf[int(findy)*buffer_width+int(findx)] != 0)
+						if (buf[int(findy)*buffer_width+int(findx)] > 10)
 						{
 							ncount = 0;
 						}
@@ -863,7 +1089,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 				{
 					while ((findx-limit_x)*(findx-xite-limit_x) > 0)
 					{
-						if (buf[int(findy)*buffer_width+int(findx)] != 0)
+						if (buf[int(findy)*buffer_width+int(findx)] > 10)
 						{
 							ncount = 0;
 						}
@@ -932,6 +1158,15 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		}
 		++polygon_ite;
 	}
+
+// 	polygon_ite = polygons.begin();
+// 	while (polygon_ite != polygons.end())
+// 	{
+// 		polygon_ite->Output(strRrlxPath.GetBuffer(0));
+// 		++polygon_ite;
+// 	}
+// 
+// 	return true;
 	
 	//获取dxf中的多边形
 	CDrawing m_dxffile;
@@ -939,7 +1174,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	std::vector<double*> vecX;
 	std::vector<double*> vecY;
 	
-	if (m_dxffile.Create() && m_dxffile.LoadDXFFile(strDxfPath) == TRUE)
+	if (strDxfPath.Right(3).CompareNoCase(_T("dxf")) == 0 && m_dxffile.Create() && m_dxffile.LoadDXFFile(strDxfPath) == TRUE)
 	{
 		ENTITYHEADER EntityHeader;
 		char	 EntityData[4096];
@@ -983,7 +1218,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		}
 		m_dxffile.Destroy();
 	}
-	else
+	else if (strDxfPath.Right(3).CompareNoCase(_T("dxf")) == 0)
 	{
 		pImage->Close();
 		pImage->Release();
@@ -1057,14 +1292,17 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 					}
 
 					//判断连线本身是否穿过任何建筑物
-					bool is_cross_building = LineCrossPolygon(vecX, vecY, vecPointNum,
-						short_start_x, short_start_y, short_end_x, short_end_y);
-
-					if (is_cross_building == false)
+					if (strDxfPath.Right(3).CompareNoCase(_T("dxf")) == 0)
 					{
-						++point_index;
-						++ite;
-						continue;
+						bool is_cross_building = LineCrossPolygon(vecX, vecY, vecPointNum,
+							short_start_x, short_start_y, short_end_x, short_end_y);
+
+						if (is_cross_building == false)
+						{
+							++point_index;
+							++ite;
+							continue;
+						}
 					}
 
 					//找出另一关联影像
@@ -1090,6 +1328,8 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 						PolygonExt2(0, NULL, NULL, polygon_ite->index_name_));
 					if (poly == EffPolygons.end())
 					{
+						++point_index;
+						++ite;
 						continue;
 					}
 					Path subj;
@@ -1101,6 +1341,8 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 						PolygonExt2(0, NULL, NULL, strIndexName));
 					if (poly == EffPolygons.end())
 					{
+						++point_index;
+						++ite;
 						continue;
 					}
 					Path clip;
@@ -1128,6 +1370,8 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 						PolygonExt2(0, NULL, NULL, strIndexName));
 					if (poly == polygons.end())
 					{
+						++point_index;
+						++ite;
 						continue;
 					}
 					for (int count = 0; count < poly->point_count_; ++count)
@@ -1144,11 +1388,13 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 
 					c.AddPaths(effect, ptSubject, true);
 					c.AddPaths(temp, ptClip, true);
-					Paths result;
-					c.Execute(ctIntersection, result);
+					Paths result = temp;
+					/*c.Execute(ctIntersection, result);*/
 
 					if (result.size() == 0)
 					{
+						++point_index;
+						++ite;
 						continue;
 					}
 
@@ -1173,7 +1419,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 						-1 != PtInRegionZXEx(short_end_x, short_end_y, tempx, tempy, effect_point_count, 0.07))
 					{
 						//返回错误则取图幅范围相交区域走最短路径
-						CString image_path = path+polygon_ite->index_name_+_T(".tif");
+						CString image_path = path+polygon_ite->index_name_+strExt;
 						tempImage->Open(image_path.AllocSysString(), modeRead);
 						RectFExt the_rect;
 						int nXSize = 0, nYSize = 0;
@@ -1208,7 +1454,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 								break;
 							}
 						}
-						image_path = path+strSameIndex+_T(".tif");
+						image_path = path+strSameIndex+strExt;
 						tempImage->Open(image_path.AllocSysString(), modeRead);
 						RectFExt temp_rect;
 
@@ -1338,42 +1584,98 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	vecY.clear();
 	
 	//删除造成相交的点
-	polygon_ite = polygons.begin();
-	while (polygon_ite != polygons.end())
-	{
-		double* px = polygon_ite->px_;
-		double* py = polygon_ite->py_;
-		int point_count = polygon_ite->point_count_;
-		for (int count = 0; count < point_count; ++count)
-		{
-			if (polygon_ite->np_[count].available_ == false)
-			{
-				auto polygon_ite2 = polygons.begin();
-				bool isin = false;
-				while (polygon_ite2 != polygons.end())
-				{
-					CString strID = polygon_ite2->index_name_;
-					if (strID.CompareNoCase(polygon_ite->np_[count].index_name_n_[0]) != 0 &&
-						strID.CompareNoCase(polygon_ite->index_name_) != 0)
-					{
-						isin |= (-1 != PtInRegionZXEx(px[count], py[count], polygon_ite2->px_, polygon_ite2->py_, polygon_ite2->point_count_, 0.00001));
-					}
-					++polygon_ite2;
-				}
-				if (!isin)
-				{
-					polygon_ite->np_[count].available_ = true;
-				}
-			}
-		}
-		++polygon_ite;
-	}
-	polygon_ite = polygons.begin();
-	while (polygon_ite != polygons.end())
-	{
-		polygon_ite->DeletePoint();
-		++polygon_ite;
-	}
+// 	polygon_ite = polygons.begin();
+// 	while (polygon_ite != polygons.end())
+// 	{
+// 		double* px = polygon_ite->px_;
+// 		double* py = polygon_ite->py_;
+// 		int point_count = polygon_ite->point_count_;
+// 		for (int count = 0; count < point_count; ++count)
+// 		{
+// 			if (polygon_ite->np_[count].shared_by_ == 2)
+// 			{
+// 				if (polygon_ite->np_[count].available_ == false)
+// 				{
+// 					auto polygon_ite2 = polygons.begin();
+// 					bool isin = false;
+// 					while (polygon_ite2 != polygons.end())
+// 					{
+// 						CString strID = polygon_ite2->index_name_;
+// 						if (strID.CompareNoCase(polygon_ite->np_[count].index_name_n_[0]) != 0 &&
+// 							strID.CompareNoCase(polygon_ite->index_name_) != 0)
+// 						{
+// 							isin |= (-1 != PtInRegionZXEx(px[count], py[count], polygon_ite2->px_, polygon_ite2->py_, polygon_ite2->point_count_, 0.00001));
+// 						}
+// 						++polygon_ite2;
+// 					}
+// 					if (!isin)
+// 					{
+// 						polygon_ite->np_[count].available_ = true;
+// 					}
+// 				}
+// 			}
+// 		}
+// 		++polygon_ite;
+// 	}
+// 	polygon_ite = polygons.begin();
+// 	while (polygon_ite != polygons.end())
+// 	{
+// 		polygon_ite->DeletePoint();
+// 		++polygon_ite;
+// 	}
+
+
+	//解决多边形自交
+// 	polygon_ite = polygons.begin();
+// 	while (polygon_ite != polygons.end())
+// 	{
+// 		double* px = polygon_ite->px_;
+// 		double* py = polygon_ite->py_;
+// 		int count = polygon_ite->point_count_;
+// 		if (count == 0)
+// 		{
+// 			++polygon_ite;
+// 			continue;
+// 		}
+// 		int index_front = 0, index_back = (index_front+count-1)%count;
+// 
+// 		for (; index_front < count; ++index_front)
+// 		{
+// 			for (index_back = (index_front+count-1)%count;
+// 				index_back != (index_front+2)%count;
+// 				)
+// 			{
+// 				if(LineCrossLine(px[index_front], py[index_front],
+// 					px[(index_front+1)%count], py[(index_front+1)%count],
+// 					px[index_back], py[index_back],
+// 					px[(index_back-1+count)%count], py[(index_back-1+count)%count]))
+// 				{
+// 					if (polygon_ite->np_[(index_front+1)%count].index_name_n_[0] == polygon_ite->np_[(index_back-1+count)%count].index_name_n_[0])
+// 					{
+// 						double px_front = px[index_front];
+// 						double py_front = py[index_front];
+// 						double px_front_next = px[(index_front+1)%count];
+// 						double py_front_next = py[(index_front+1)%count];
+// 						double px_back = px[index_back];
+// 						double py_back = py[index_back];
+// 						double px_back_previous = px[(index_back-1+count)%count];
+// 						double py_back_previous = py[(index_back-1+count)%count];
+// 						auto temp_ite = polygons.begin();
+// 						while (temp_ite != polygons.end())
+// 						{
+// 							temp_ite->RotatePoints(px_front, py_front, px_front_next, py_front_next,
+// 								px_back, py_back, px_back_previous, py_back_previous);
+// 							++temp_ite;
+// 						}
+// 						continue;
+// 					}
+// 				}
+// 				index_back = (index_back+count-1)%count;
+// 			}
+// 		}
+// 
+// 		++polygon_ite;
+// 	}
 	
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
@@ -1571,7 +1873,7 @@ bool EffectPoly(std::vector<CString>& vecImagePath)
 		outfile.open(point_path.GetBuffer(0), std::ios::out);
 		outfile<<std::fixed;
 		outfile<<point_left.size()+point_right.size()<<"\n";
-		for (int i = 0; i < point_left.size(); ++i)
+		for (unsigned int i = 0; i < point_left.size(); ++i)
 		{
 			outfile<<point_left[i].x*lfCellSize+lfXOrigin<<"   "<<point_left[i].y*lfCellSize+lfYOrigin<<"\n";
 		}

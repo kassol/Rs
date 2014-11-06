@@ -161,6 +161,86 @@ struct PolygonExt2
 			}
 		}
 	}
+	void RotatePoints(double startx, double starty, double startx_next, double starty_next, double endx, double endy, double endx_next, double endy_next)
+	{
+		int start_index = 0, end_index = 0;
+		bool is_reverse = false;
+
+		for (int i = 0; i < point_count_; ++i)
+		{
+			if (fabs(px_[i]-startx) < 1e-5 && fabs(py_[i]-starty) < 1e-5)
+			{
+				if (fabs(px_[(i+1)%point_count_]-startx_next) < 1e-5 && fabs(py_[(i+1)%point_count_]-starty_next) < 1e-5)
+				{
+					start_index = (i+1)%point_count_;
+					is_reverse = false;
+				}
+				else if (fabs(px_[(i-1+point_count_)%point_count_]-startx_next) < 1e-5 && fabs(py_[(i-1+point_count_)%point_count_]-starty_next) < 1e-5)
+				{
+					start_index = (i-1+point_count_)%point_count_;
+					is_reverse = true;
+				}
+			}
+		}
+
+		for (int i = 0; i < point_count_; ++i)
+		{
+			if (fabs(px_[i]-endx) < 1e-5 && fabs(py_[i]-endy) < 1e-5)
+			{
+				if (!is_reverse)
+				{
+					end_index = (i-1+point_count_)%point_count_;
+				}
+				else
+				{
+					end_index = (i+1)%point_count_;
+				}
+			}
+		}
+
+		int temp_count = 0;
+		if (!is_reverse)
+		{
+			for (int i = start_index, j = end_index;
+				(start_index-end_index)*(i-j) > 0;
+				i = (i+1)%point_count_, j = (j-1+point_count_)%point_count_)
+			{
+				double temp = px_[i];
+				px_[i] = px_[j];
+				px_[j] = temp;
+
+				temp = py_[i];
+				py_[i] = py_[j];
+				py_[j] = temp;
+
+				NodeProperty temp_node = np_[i];
+				np_[i] = np_[j];
+				np_[j] = temp_node;
+				++temp_count;
+			}
+		}
+		else
+		{
+			for (int i = start_index, j = end_index;
+				(start_index-end_index)*(i-j) > 0;
+				i = (i-1+point_count_)%point_count_, j = (j+1)%point_count_)
+			{
+				double temp = px_[i];
+				px_[i] = px_[j];
+				px_[j] = temp;
+
+				temp = py_[i];
+				py_[i] = py_[j];
+				py_[j] = temp;
+
+				NodeProperty temp_node = np_[i];
+				np_[i] = np_[j];
+				np_[j] = temp_node;
+				++temp_count;
+			}
+		}
+		temp_count;
+	}
 	void InsertPoints(double startx, double starty, double endx, double endy, double* pxin, double* pyin, long point_count, CString strIndex, CString strIndex2)
 	{
 		long new_point_count_ = point_count+point_count_;
@@ -280,6 +360,57 @@ static bool NotImportant(NodeProperty& center, NodeProperty& left, NodeProperty&
 	return true;
 }
 
+static double GetDistance(double pointx, double pointy, double linestartx, double linestarty, 
+	double lineendx, double lineendy)
+{
+	double a = linestarty-lineendy;
+	double b = lineendx-linestartx;
+	double c = linestartx*lineendy-lineendx*linestarty;
+
+	return fabs(a*pointx+b*pointy+c)/(sqrt(a*a+b*b));
+}
+
+static void recurse(double* px, double* py, std::vector<int>& v, int start, int end, double limit, int point_count)
+{
+	if ((start+1)%point_count == end)
+	{
+		return;
+	}
+
+	int max = 0;
+	int max_index = 0;
+
+	for (int i = (start+1)%point_count; i != end; i = (i+1)%point_count)
+	{
+		int dis = GetDistance(px[i], py[i], px[start], py[start],
+			px[end], py[end]);
+		if (max == 0 || max < dis)
+		{
+			max = dis;
+			max_index = i;
+		}
+	}
+	
+	if (max < limit)
+	{
+		return;
+	}
+
+	auto ite = v.begin();
+	while (ite != v.end())
+	{
+		if (*ite == start)
+		{
+			v.insert(ite+1, max_index);
+			break;
+		}
+		++ite;
+	}
+
+	recurse(px, py, v, start, max_index, limit, point_count);
+	recurse(px, py, v, max_index, end, limit, point_count);
+}
+
 bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath);
 bool EffectPoly(std::vector<CString>& vecImagePath);
 bool Dxf2Dsm(CString strDxf, double cellsize);
@@ -289,4 +420,3 @@ bool LineCrossLine(double px1, double py1, double px2, double py2, double px3, d
 bool GetCrossPoint(double px1, double py1, double px2, double py2, double* px, double* py, int point_num, double& result_x, double& result_y);
 int  PtInRegionZXEx(double x, double y, double *pX, double *pY, int nSum, double lfSnap);
 double CalDistance(double x1, double y1, double x2, double y2);
-double GetDistance(double pointx, double pointy, double linestartx, double linestarty, double lineendx, double lineendy);

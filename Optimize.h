@@ -5,6 +5,16 @@
 
 using namespace std;
 
+bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath);
+bool EffectPoly(std::vector<CString>& vecImagePath);
+bool Dxf2Dsm(CString strDxf, double cellsize);
+bool Dsm2Tif(CString strDsmPath);
+bool LineCrossPolygon(std::vector<double*>& vecx, std::vector<double*>& vecy, std::vector<int>& point_num, double px1, double py1, double px2, double py2);
+bool LineCrossLine(double px1, double py1, double px2, double py2, double px3, double py3, double px4, double py4);
+bool GetCrossPoint(double px1, double py1, double px2, double py2, double* px, double* py, int point_num, double& result_x, double& result_y);
+int  PtInRegionZXEx(double x, double y, double *pX, double *pY, int nSum, double lfSnap);
+double CalDistance(double x1, double y1, double x2, double y2);
+
 struct PointEx{
 	PointEx(){x = 0; y = 0;}
 	PointEx(int xpos, int ypos):x(xpos), y(ypos){}
@@ -67,12 +77,14 @@ struct NodeProperty
 	NodeProperty(int shared_by)
 		: shared_by_(shared_by)
 		, available_(true)
+		, is_edge_(false)
 	{
 
 	}
 	int shared_by_;
 	CString index_name_n_[3];
 	bool available_;
+	bool is_edge_;
 };
 
 struct PolygonExt2
@@ -82,6 +94,7 @@ struct PolygonExt2
 		, px_(px)
 		, py_(py)
 		, index_name_(index_name)
+		, is_cross_self_(-1)
 	{
 		np_.resize(point_count_, 1);
 	}
@@ -318,6 +331,88 @@ struct PolygonExt2
 		delete []new_py_;
 		new_py_ = NULL;
 	}
+	int GetArea()
+	{
+		double area = 0;
+		for (int i = 0; i < point_count_; ++i)
+		{
+			area += px_[i]*py_[(i+1)%point_count_]-px_[(i+1)%point_count_]*py_[i];
+		}
+		area /= 2;
+
+		if (fabs(area) <1e-3)
+		{
+			return 0;
+		}
+		else if (area < 0)
+		{
+			return -1;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	int GetDelArea()
+	{
+		vector<int> vecIndex;
+		for (int i = 0; i < point_count_; ++i)
+		{
+			if (np_[i].available_)
+			{
+				vecIndex.push_back(i);
+			}
+		}
+
+		double area = 0;
+		int count = vecIndex.size();
+		for (int i = 0; i < count; ++i)
+		{
+			area += px_[vecIndex[i]]*py_[vecIndex[(i+1)%count]]-px_[vecIndex[(i+1)%count]]*py_[vecIndex[i]];
+		}
+		area /= 2;
+
+		vecIndex.clear();
+
+		if (fabs(area) < 1e-3)
+		{
+			return 0;
+		}
+		else if (area < 0)
+		{
+			return -1;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	bool CrossSelf()
+	{
+		vector<int> vectemp;
+		for (int i = 0; i < point_count_; ++i)
+		{
+			if (np_[i].available_)
+			{
+				vectemp.push_back(i);
+			}
+		}
+
+		int count = vectemp.size();
+		for (int i = 0; i < count; ++i)
+		{
+			for (int j = (i+2)%count; j != (i-1+count)%count; j = (j+1)%count)
+			{
+				if (LineCrossLine(px_[vectemp[i]], py_[vectemp[i]], px_[vectemp[(i+1)%count]], py_[vectemp[(i+1)%count]],
+					px_[vectemp[j]], py_[vectemp[j]], px_[vectemp[(j+1)%count]], py_[vectemp[(j+1)%count]]))
+				{
+					vectemp.clear();
+					return true;
+				}
+			}
+		}
+		return false;
+	}
 	void Free()
 	{
 		delete []px_;
@@ -335,6 +430,7 @@ struct PolygonExt2
 	double* px_;
 	double* py_;
 	CString index_name_;
+	int is_cross_self_;
 	std::vector<NodeProperty> np_;
 };
 
@@ -410,13 +506,3 @@ static void recurse(double* px, double* py, std::vector<int>& v, int start, int 
 	recurse(px, py, v, start, max_index, limit, point_count);
 	recurse(px, py, v, max_index, end, limit, point_count);
 }
-
-bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath);
-bool EffectPoly(std::vector<CString>& vecImagePath);
-bool Dxf2Dsm(CString strDxf, double cellsize);
-bool Dsm2Tif(CString strDsmPath);
-bool LineCrossPolygon(std::vector<double*>& vecx, std::vector<double*>& vecy, std::vector<int>& point_num, double px1, double py1, double px2, double py2);
-bool LineCrossLine(double px1, double py1, double px2, double py2, double px3, double py3, double px4, double py4);
-bool GetCrossPoint(double px1, double py1, double px2, double py2, double* px, double* py, int point_num, double& result_x, double& result_y);
-int  PtInRegionZXEx(double x, double y, double *pX, double *pY, int nSum, double lfSnap);
-double CalDistance(double x1, double y1, double x2, double y2);

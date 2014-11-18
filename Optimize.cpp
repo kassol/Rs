@@ -3,6 +3,7 @@
 #include "clipper.hpp"
 #include <algorithm>
 #include <io.h>
+#include <time.h>
 
 
 #define _SnapSame(x1, x2, lfSnap)		(0==lfSnap?x1==x2:fabs(x1-x2)<lfSnap)
@@ -18,6 +19,9 @@ double CalDistance(double x1, double y1, double x2, double y2)
 
 bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 {
+	clock_t starter = clock();
+	fstream outtime;
+	outtime.open("C:\\time.txt", ios::out);
 	CString path;
 	CString strExt;
 	std::vector<CString> vecImagePath;
@@ -104,6 +108,92 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		}
 		++polygon_ite;
 	}
+
+	long timer = clock() - starter;
+	outtime<<"统计耗时："<<timer<<"ms\n";
+
+	//判断边界点
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int point_count = polygon_ite->point_count_;
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			if (polygon_ite->np_[i].shared_by_ == 1)
+			{
+				polygon_ite->np_[i].is_edge_ = true;
+			}
+			else
+			{
+				vector<double> vecx_temp;
+				vector<double> vecy_temp;
+				vecx_temp.push_back(px[(i-1+point_count)%point_count]);
+				vecy_temp.push_back(py[(i-1+point_count)%point_count]);
+				vecx_temp.push_back(px[(i+1)%point_count]);
+				vecy_temp.push_back(py[(i+1)%point_count]);
+				for (int n = 0; n < polygon_ite->np_[i].shared_by_-1; ++n)
+				{
+					auto ite = std::find(polygons.begin(), polygons.end(),
+						PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[n]));
+					int the_index = 0;
+					for (int j = 0; j < ite->point_count_; ++j)
+					{
+						if (fabs(px[i]-ite->px_[j]) < 1e-5 &&
+							fabs(py[i]-ite->py_[j]) < 1e-5)
+						{
+							the_index = j;
+							break;
+						}
+					}
+
+					bool is_include = false;
+					for (unsigned int j = 0; j < vecx_temp.size(); ++j)
+					{
+						if (fabs(ite->px_[(the_index-1+ite->point_count_)%ite->point_count_]-vecx_temp[j]) < 1e-5 &&
+							fabs(ite->py_[(the_index-1+ite->point_count_)%ite->point_count_]-vecy_temp[j]) < 1e-5)
+						{
+							is_include = true;
+							break;
+						}
+					}
+					if (!is_include)
+					{
+						vecx_temp.push_back(ite->px_[(the_index-1+ite->point_count_)%ite->point_count_]);
+						vecy_temp.push_back(ite->py_[(the_index-1+ite->point_count_)%ite->point_count_]);
+					}
+
+					is_include = false;
+					for (unsigned int j = 0; j < vecx_temp.size(); ++j)
+					{
+						if (fabs(ite->px_[(the_index+1)%ite->point_count_]-vecx_temp[j]) < 1e-5 &&
+							fabs(ite->py_[(the_index+1)%ite->point_count_]-vecy_temp[j]) < 1e-5)
+						{
+							is_include = true;
+							break;
+						}
+					}
+					if (!is_include)
+					{
+						vecx_temp.push_back(ite->px_[(the_index+1)%ite->point_count_]);
+						vecy_temp.push_back(ite->py_[(the_index+1)%ite->point_count_]);
+					}
+				}
+				if (vecx_temp.size() > polygon_ite->np_[i].shared_by_)
+				{
+					polygon_ite->np_[i].is_edge_ = true;
+				}
+				vecx_temp.clear();
+				vecy_temp.clear();
+			}
+		}
+		++polygon_ite;
+	}
+
+	timer = clock()-starter;
+	outtime<<"边界点耗时："<<timer<<"ms\n";
 	
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
@@ -111,32 +201,9 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		auto ite = polygon_ite->np_.begin();
 		while (ite != polygon_ite->np_.end())
 		{
-			if (ite == polygon_ite->np_.begin())
+			if (ite->shared_by_ == 2 && ite->is_edge_ == false)
 			{
-				if (ite->shared_by_ == 2 && polygon_ite->np_.back().shared_by_ != 1
-					&& (ite+1)->shared_by_ != 1
-					&& NotImportant(*ite, polygon_ite->np_.back(), *(ite+1)))
-				{
-					ite->available_ = false;
-				}
-			}
-			else if (ite == polygon_ite->np_.end()-1)
-			{
-				if (ite->shared_by_ == 2 && (ite-1)->shared_by_ != 1
-					&& polygon_ite->np_.front().shared_by_ != 1
-					&& NotImportant(*ite, *(ite-1), polygon_ite->np_.front()))
-				{
-					ite->available_ = false;
-				}
-			}
-			else
-			{
-				if (ite->shared_by_ == 2 && (ite-1)->shared_by_ != 1
-					&& (ite+1)->shared_by_ != 1
-					&& NotImportant(*ite, *(ite+1), *(ite-1)))
-				{
-					ite->available_ = false;
-				}
+				ite->available_ = false;
 			}
 			++ite;
 		}
@@ -147,31 +214,6 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
-		auto ite = polygon_ite->np_.begin();
-		int index1 = 0;
-		while (ite != polygon_ite->np_.end())
-		{
-			if (ite->shared_by_ == 2)
-			{
-				auto temp_ite = std::find(polygons.begin(), polygons.end(),
-					PolygonExt2(0, NULL, NULL, ite->index_name_n_[0]));
-				for (int index2 = 0; index2 < temp_ite->point_count_; ++index2)
-				{
-					if (fabs(polygon_ite->px_[index1]-temp_ite->px_[index2]) < 1e-5 &&
-						fabs(polygon_ite->py_[index1]-temp_ite->py_[index2]) < 1e-5)
-					{
-						if (temp_ite->np_[index2].available_)
-						{
-							ite->available_ = true;
-						}
-						break;
-					}
-				}
-			}
-			++index1;
-			++ite;
-		}
-
 		vector<int> available_index;
 		for (int index = 0; index < polygon_ite->point_count_; ++index)
 		{
@@ -202,6 +244,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 			for (unsigned int index = 0; index < available_result.size(); ++index)
 			{
 				polygon_ite->np_[available_result[index]].available_ = true;
+				polygon_ite->np_[available_result[index]].is_edge_ = true;
 			}
 
 			available_result.clear();
@@ -231,6 +274,138 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 						if (temp_ite->np_[index2].available_)
 						{
 							ite->available_ = true;
+							ite->is_edge_ = true;
+						}
+						break;
+					}
+				}
+			}
+			++index1;
+			++ite;
+		}
+
+		++polygon_ite;
+	}
+
+	timer = clock()-starter;
+	outtime<<"dp增点耗时："<<timer<<"ms\n";
+
+
+	//解决删点面积反向
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		int area = polygon_ite->GetArea();
+		int area_del = polygon_ite->GetDelArea();
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int point_count = polygon_ite->point_count_;
+		
+		if (area_del == 0)
+		{
+			vector<int> reserve_index;
+			for (int i = 0; i < point_count; ++i)
+			{
+				if (polygon_ite->np_[i].available_)
+				{
+					reserve_index.push_back(i);
+				}
+				if (reserve_index.size() == 2)
+				{
+					break;
+				}
+			}
+			double max = 0;
+			int max_index = 0;
+			for (int i = 0; i < point_count; ++i)
+			{
+				if (polygon_ite->np_[i].available_ == false)
+				{
+					double dis = GetDistance(px[i], py[i], px[reserve_index[0]],
+						py[reserve_index[0]], px[reserve_index[1]], py[reserve_index[1]]);
+					if (max == 0 || max < dis)
+					{
+						max = dis;
+						max_index = i;
+					}
+				}
+			}
+			reserve_index.clear();
+			polygon_ite->np_[max_index].available_ = true;
+		}
+		else if (area*area_del < 0)
+		{
+			for (int i = 0; i < point_count; ++i)
+			{
+				if (polygon_ite->np_[i].available_ == false)
+				{
+					polygon_ite->np_[i].available_ = true;
+					polygon_ite->np_[i].is_edge_ = true;
+					area_del = polygon_ite->GetDelArea();
+					if (area*area_del > 0)
+					{
+						break;
+					}
+				}
+			}
+		}
+		++polygon_ite;
+	}
+
+	//解决删点后自交
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		bool modified = false;
+		if (polygon_ite->CrossSelf())
+		{
+			for (int i = 0; i < polygon_ite->point_count_; ++i)
+			{
+				if (polygon_ite->np_[i].available_ == false)
+				{
+					polygon_ite->np_[i].available_ = true;
+					polygon_ite->np_[i].is_edge_ = true;
+					if (polygon_ite->CrossSelf() == false)
+					{
+						modified = true;
+						break;
+					}
+					else
+					{
+						polygon_ite->np_[i].available_ = false;
+						polygon_ite->np_[i].is_edge_ = false;
+					}
+				}
+			}
+			if (modified)
+			{
+				polygon_ite = polygons.begin();
+				continue;
+			}
+		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		auto ite = polygon_ite->np_.begin();
+		int index1 = 0;
+		while (ite != polygon_ite->np_.end())
+		{
+			if (ite->shared_by_ == 2)
+			{
+				auto temp_ite = std::find(polygons.begin(), polygons.end(),
+					PolygonExt2(0, NULL, NULL, ite->index_name_n_[0]));
+				for (int index2 = 0; index2 < temp_ite->point_count_; ++index2)
+				{
+					if (fabs(polygon_ite->px_[index1]-temp_ite->px_[index2]) < 1e-5 &&
+						fabs(polygon_ite->py_[index1]-temp_ite->py_[index2]) < 1e-5)
+					{
+						if (temp_ite->np_[index2].available_)
+						{
+							ite->available_ = true;
+							ite->is_edge_ = true;
 						}
 						break;
 					}
@@ -363,21 +538,8 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		++polygon_ite;
 	}
 
-	static int i = 0;
-
-	if (i%2 == 0)
-	{
-		polygon_ite = polygons.begin();
-		while (polygon_ite != polygons.end())
-		{
-			polygon_ite->Output(strRrlxPath.GetBuffer(0));
-			++polygon_ite;
-		}
-
-		++i;
-		return true;
-	}
-	++i;
+	timer = clock()-starter;
+	outtime<<"解决删点错误耗时："<<timer<<"ms\n";
 	
 	
 // 	if (!EffectPoly(vecImagePath))
@@ -412,391 +574,6 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		++path_ite;
 	}
 	
-	//根据有效区域移点
-	/*polygon_ite = polygons.begin();
-	while(polygon_ite != polygons.end())
-	{
-		double* px = polygon_ite->px_;
-		double* py = polygon_ite->py_;
-		int point_count = polygon_ite->point_count_;
-
-		for (int i = 0; i < point_count; ++i)
-		{
-			int shared_by = polygon_ite->np_[i].shared_by_;
-			double geox = px[i];
-			double geoy = py[i];
-			if (shared_by >= 3)
-			{
-				Paths polys(shared_by);
-				auto tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
-					PolygonExt2(0, NULL, NULL, polygon_ite->index_name_));
-				if (tempoly == EffPolygons.end())
-				{
-					return false;
-				}
-				for (int n = 0; n < tempoly->point_count_; ++n)
-				{
-					polys[0]<<IntPoint(int(tempoly->px_[n]*PRECISION), int(tempoly->py_[n]*PRECISION));
-				}
-				for (int s = 0; s < shared_by-1; ++s)
-				{
-					tempoly = std::find(EffPolygons.begin(), EffPolygons.end(),
-						PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[s]));
-					if (tempoly == EffPolygons.end())
-					{
-						return false;
-					}
-					for (int n = 0; n < tempoly->point_count_; ++n)
-					{
-						polys[s+1]<<IntPoint(int(tempoly->px_[n]*PRECISION), int(tempoly->py_[n]*PRECISION));
-					}
-				}
-				Paths result;
-				Clipper clip;
-				clip.AddPath(polys[0], ptSubject, true);
-				for (int p = 1; p < shared_by; ++p)
-				{
-					clip.AddPath(polys[p], ptClip, true);
-					clip.Execute(ctIntersection, result);
-					if (result.size() == 0)
-					{
-						continue;
-					}
-					if (p != shared_by-1)
-					{
-						clip.Clear();
-						clip.AddPath(result[0], ptSubject, true);
-						result.clear();
-					}
-				}
-
-				if (result.size() == 0)
-				{
-					continue;
-				}
-				double* limit_poly_x = new double[shared_by];
-				double* limit_poly_y = new double[shared_by];
-				memset(limit_poly_x, 0, sizeof(double)*shared_by);
-				memset(limit_poly_y, 0, sizeof(double)*shared_by);
-
-				limit_poly_x[0] = px[(i+1)%point_count];
-				limit_poly_y[0] = py[(i+1)%point_count];
-				limit_poly_x[1] = px[(i-1+point_count)%point_count];
-				limit_poly_y[1] = py[(i-1+point_count)%point_count];
-				//获取相邻点所围成的区域点
-				if (shared_by == 3)
-				{
-					auto limit_ite = std::find(polygons.begin(), polygons.end(),
-						PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[0]));
-					if (limit_ite != polygons.end())
-					{
-						int temp_count = limit_ite->point_count_;
-						for (int count = 0; count < temp_count; ++count)
-						{
-							if (fabs(limit_ite->px_[count]-px[i]) < 0.000001 &&
-								fabs(limit_ite->py_[count]-py[i]) < 0.000001)
-							{
-								if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[0]) < 0.000001 &&
-									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[0]) < 0.000001)
-								{
-									limit_poly_x[2] = limit_ite->px_[(count+1)%temp_count];
-									limit_poly_y[2] = limit_ite->py_[(count+1)%temp_count];
-									break;
-								}
-								else if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[1]) < 0.000001 &&
-									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[1]) < 0.000001)
-								{
-									limit_poly_x[2] = limit_ite->px_[(count+1)%temp_count];
-									limit_poly_y[2] = limit_ite->py_[(count+1)%temp_count];
-									break;
-								}
-								else
-								{
-									if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[0]) < 0.000001 &&
-										fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[0]) < 0.000001)
-									{
-										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
-										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
-										break;
-									}
-									else if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[1]) < 0.000001 &&
-										fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[1]) < 0.000001)
-									{
-										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
-										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
-										break;
-									}
-									else
-									{
-										delete []limit_poly_x;
-										delete []limit_poly_y;
-										limit_poly_x = NULL;
-										limit_poly_y = NULL;
-										break;
-									}
-								}
-							}
-						}
-					}
-				}
-				else if (shared_by == 4)
-				{
-					for (int temp = 0; temp < 2; ++temp)
-					{
-						auto limit_ite = std::find(polygons.begin(), polygons.end(),
-							PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[temp]));
-						if (limit_ite == polygons.end())
-						{
-							delete []limit_poly_x;
-							delete []limit_poly_y;
-							limit_poly_x = NULL;
-							limit_poly_y = NULL;
-							break;
-						}
-						int temp_count = limit_ite->point_count_;
-						for (int count = 0; count < temp_count; ++count)
-						{
-							if (fabs(limit_ite->px_[count]-px[i]) < 0.000001 &&
-								fabs(limit_ite->py_[count]-py[i]) < 0.000001)
-							{
-								if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[0]) < 0.000001 &&
-									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[0]) < 0.000001)
-								{
-									if (limit_poly_x[2] == 0)
-									{
-										limit_poly_x[2] = limit_ite->px_[(count+1)%temp_count];
-										limit_poly_y[2] = limit_ite->py_[(count+1)%temp_count];
-									}
-									else
-									{
-										limit_poly_x[3] = limit_ite->px_[(count+1)%temp_count];
-										limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
-									}
-								}
-								else if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[1]) < 0.000001 &&
-									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[1]) < 0.000001)
-								{
-									if (limit_poly_x[2] == 0)
-									{
-										limit_poly_x[2] = limit_ite->px_[(count+1)%temp_count];
-										limit_poly_y[2] = limit_ite->py_[(count+1)%temp_count];
-									}
-									else
-									{
-										limit_poly_x[3] = limit_ite->px_[(count+1)%temp_count];
-										limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
-									}
-								}
-								else if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[2]) < 0.000001 &&
-									fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[2]) < 0.000001)
-								{
-									limit_poly_x[3] = limit_ite->px_[(count+1)%temp_count];
-									limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
-								}
-								else
-								{
-									if (limit_poly_x[2] == 0)
-									{
-										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
-										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
-									}
-									else
-									{
-										limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
-										limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
-									}
-								}
-
-								if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[0]) < 0.000001 &&
-									fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[0]) < 0.000001)
-								{
-									if (limit_poly_x[2] == 0)
-									{
-										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
-										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
-									}
-									else
-									{
-										limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
-										limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
-									}
-								}
-								else if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[1]) < 0.000001 &&
-									fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[1]) < 0.000001)
-								{
-									if (limit_poly_x[2] == 0)
-									{
-										limit_poly_x[2] = limit_ite->px_[(count-1+temp_count)%temp_count];
-										limit_poly_y[2] = limit_ite->py_[(count-1+temp_count)%temp_count];
-									}
-									else
-									{
-										limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
-										limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
-									}
-								}
-								else if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[2]) < 0.000001 &&
-									fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[2]) < 0.000001)
-								{
-									if (fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[0]) > 0.000001 &&
-										fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[0]) > 0.000001 &&
-										fabs(limit_ite->px_[(count-1+temp_count)%temp_count]-limit_poly_x[1]) > 0.000001 &&
-										fabs(limit_ite->py_[(count-1+temp_count)%temp_count]-limit_poly_y[1]) > 0.000001)
-									{
-										limit_poly_x[3] = limit_ite->px_[(count-1+temp_count)%temp_count];
-										limit_poly_y[3] = limit_ite->py_[(count-1+temp_count)%temp_count];
-									}
-								}
-								else
-								{
-									if (fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[0]) > 0.000001 &&
-										fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[0]) > 0.000001 &&
-										fabs(limit_ite->px_[(count+1)%temp_count]-limit_poly_x[1]) > 0.000001 &&
-										fabs(limit_ite->py_[(count+1)%temp_count]-limit_poly_y[1]) > 0.000001)
-									{
-										limit_poly_x[3] = limit_ite->px_[(count+1)%temp_count];
-										limit_poly_y[3] = limit_ite->py_[(count+1)%temp_count];
-									}
-								}
-
-								if (limit_poly_x[2] == 0)
-								{
-									delete []limit_poly_x;
-									delete []limit_poly_y;
-									limit_poly_x = NULL;
-									limit_poly_y = NULL;
-									break;
-								}
-								else if (limit_poly_x[3] != 0)
-								{
-									break;
-								}
-							}
-						}
-					}
-				}
-				else
-				{
-					delete []limit_poly_x;
-					delete []limit_poly_y;
-					limit_poly_x = NULL;
-					limit_poly_y = NULL;
-					continue;
-				}//获取区域结束
-
-				if (limit_poly_x == NULL)
-				{
-					continue;
-				}
-
-				if (shared_by == 4)
-				{
-					double d1 = 0, d2 = 0, d3 = 3, d4 = 0;
-					d1 = (limit_poly_x[2]-limit_poly_x[1])*(limit_poly_y[0]-limit_poly_y[1])
-						-(limit_poly_x[0]-limit_poly_x[1])*(limit_poly_y[2]-limit_poly_y[1]);
-					d2 = (limit_poly_x[2]-limit_poly_x[1])*(limit_poly_y[3]-limit_poly_y[1])
-						-(limit_poly_x[3]-limit_poly_x[1])*(limit_poly_y[2]-limit_poly_y[1]);
-					d3 = (limit_poly_x[3]-limit_poly_x[0])*(limit_poly_y[1]-limit_poly_y[0])
-						-(limit_poly_x[1]-limit_poly_x[0])*(limit_poly_y[3]-limit_poly_y[0]);
-					d4 = (limit_poly_x[3]-limit_poly_x[0])*(limit_poly_y[2]-limit_poly_y[0])
-						-(limit_poly_x[2]-limit_poly_x[0])*(limit_poly_y[3]-limit_poly_y[0]);
-					if (d1*d2 < 0 && d3*d4 < 0)
-					{
-						double temp = limit_poly_x[2];
-						limit_poly_x[2] = limit_poly_x[3];
-						limit_poly_x[3] = temp;
-						temp = limit_poly_y[2];
-						limit_poly_y[2] = limit_poly_y[3];
-						limit_poly_y[3] = temp;
-					}
-				}
-
-				Path poly;
-				for (int count = 0; count < shared_by; ++count)
-				{
-					poly<<IntPoint(int(limit_poly_x[count]*PRECISION), int(limit_poly_y[count]*PRECISION));
-				}
-
-				clip.Clear();
-				clip.AddPath(result[0], ptSubject, true);
-				result.clear();
-				clip.AddPath(poly, ptClip, true);
-				clip.Execute(ctIntersection, result);
-
-				delete []limit_poly_x;
-				delete []limit_poly_y;
-				limit_poly_x = NULL;
-				limit_poly_y = NULL;
-
-				if (result.size() == 1)
-				{
-					int count = result[0].size();
-					double* tempx = new double[count];
-					double* tempy = new double[count];
-					memset(tempx, 0, sizeof(double)*count);
-					memset(tempy, 0, sizeof(double)*count);
-					for (int p = 0; p < count; ++p)
-					{
-						tempx[p] = result[0][p].X/PRECISION;
-						tempy[p] = result[0][p].Y/PRECISION;
-					}
-
-					if (-1 == PtInRegionZXEx(geox, geoy, tempx, tempy, count, 0.000001))
-					{
-						int min_index_1 = 0, min_index_2 = 0;
-						double min_distance_1 = 0, min_distance_2 = 0;
-
-						for (int m = 0; m < count; ++m)
-						{
-							double temp_distance = CalDistance(geox, geoy, tempx[m], tempy[m]);
-							if (min_distance_1 == 0 || min_distance_1 > temp_distance)
-							{
-								min_distance_2 = min_distance_1;
-								min_index_2 = min_index_1;
-								min_distance_1 = temp_distance;
-								min_index_1 = m;
-							}
-							else if (min_distance_2 == 0 || min_distance_2 > temp_distance)
-							{
-								min_distance_2 = temp_distance;
-								min_index_2 = m;
-							}
-						}
-						double new_geox = 0, new_geoy = 0;
-						if (abs(min_index_1-min_index_2) == 1)
-						{
-							new_geox = tempx[min_index_1]*min_distance_2/(min_distance_1+min_distance_2)+
-								tempx[min_index_2]*min_distance_1/(min_distance_1+min_distance_2);
-							new_geoy = tempy[min_index_1]*min_distance_2/(min_distance_1+min_distance_2)+
-								tempy[min_index_2]*min_distance_1/(min_distance_1+min_distance_2);
-						}
-						else
-						{
-							int next_index = (min_index_1+1)%count;
-							double temp_distance = CalDistance(geox, geoy, tempx[next_index], tempy[next_index]);
-							new_geox = tempx[min_index_1]*temp_distance/(min_distance_1+temp_distance)+
-								tempx[next_index]*min_distance_1/(min_distance_1+temp_distance);
-							new_geoy = new_geoy = tempy[min_index_1]*temp_distance/(min_distance_1+temp_distance)+
-								tempy[next_index]*min_distance_1/(min_distance_1+temp_distance);
-						}
-
-						auto poly = polygons.begin();
-						while (poly != polygons.end())
-						{
-							poly->ResetPoint("", geox, geoy, new_geox, new_geoy);
-							++poly;
-						}
-					}
-					delete []tempx;
-					tempx = NULL;
-					delete []tempy;
-					tempy = NULL;
-				}
-			}
-		}
-		++polygon_ite;
-	}*/
-	
 	
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
@@ -830,343 +607,6 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	}
 	CString strTifPath = strDsmPath.Left(strDsmPath.ReverseFind('.'));
 	strTifPath += _T(".tif");
-	
-	
-	//根据dsm移点
-	if (S_FALSE == pImage->Open(strTifPath.AllocSysString(), modeRead))
-	{
-		pImage->Release();
-		return false;
-	}
-	
-	
-	double resolution = 0;
-	double lfXOrigin = 0, lfYOrigin = 0;
-	pImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &resolution);
-	int nWidth = 0, nHeight = 0;
-	pImage->GetCols(&nWidth);
-	pImage->GetRows(&nHeight);
-	double lfXEnd = 0, lfYEnd = 0;
-	lfXEnd = lfXOrigin+nWidth*resolution;
-	lfYEnd = lfYOrigin+nHeight*resolution;
-
-	double pEdgex[4];
-	double pEdgey[4];
-
-	pEdgex[0] = lfXOrigin;
-	pEdgex[1] = lfXOrigin;
-	pEdgex[2] = lfXEnd;
-	pEdgex[3] = lfXEnd;
-	pEdgey[0] = lfYEnd;
-	pEdgey[1] = lfYOrigin;
-	pEdgey[2] = lfYOrigin;
-	pEdgey[3] = lfYEnd;
-	
-	//IImageX* tempImage = NULL;
-	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
-	
-	polygon_ite = polygons.begin();
-	while (polygon_ite != polygons.end())
-	{
-		break;
-		double* px = polygon_ite->px_;
-		double* py = polygon_ite->py_;
-		int num = polygon_ite->point_count_;
-
-		CString image_path = path+polygon_ite->index_name_+strExt;
-		if (S_FALSE == tempImage->Open(image_path.AllocSysString(), modeRead))
-		{
-			tempImage->Release();
-			return false;
-		}
-		RectFExt the_rect;
-		int nXSize = 0, nYSize = 0;
-		double lfCellSize = 0;
-		double lfXOrigin = 0, lfYOrigin = 0;
-
-		tempImage->GetCols(&nXSize);
-		tempImage->GetRows(&nYSize);
-		tempImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfCellSize);
-		tempImage->Close();
-
-		the_rect.left = lfXOrigin;
-		the_rect.right = lfXOrigin+nXSize*lfCellSize;
-		the_rect.bottom = lfYOrigin;
-		the_rect.top = lfYOrigin+nYSize*lfCellSize;
-
-		for (int i = 0; i < num; ++i)
-		{
-			double geox = px[i];
-			double geoy = py[i];
-			float fx = 0, fy = 0;
-			pImage->World2Image(geox, geoy, &fx, &fy);
-			unsigned char height;
-			pImage->ReadImg((int)fx, (int)fy, (int)(fx+1), (int)(fy+1),
-				&height, 1, 1, 1, 0, 0,
-				1, 1, -1, 0);
-			if (height < 10)
-			{
-				continue;
-			}
-			RectFExt result_result = the_rect;
-			if (polygon_ite->np_[i].shared_by_ >= 2)
-			{
-				for (int j = 0; j < polygon_ite->np_[i].shared_by_-1; ++j)
-				{
-					image_path = path+polygon_ite->np_[i].index_name_n_[j]+strExt;
-					tempImage->Open(image_path.AllocSysString(), modeRead);
-					RectFExt temp_rect;
-
-					int nx = 0, ny = 0;
-					double cellsize = 0;
-					double xorigin = 0, yorigin = 0;
-
-					tempImage->GetCols(&nx);
-					tempImage->GetRows(&ny);
-					tempImage->GetGrdInfo(&xorigin, &yorigin, &cellsize);
-					tempImage->Close();
-
-					temp_rect.left = xorigin;
-					temp_rect.right = xorigin+nx*cellsize;
-					temp_rect.bottom = yorigin;
-					temp_rect.top = yorigin+ny*cellsize;
-
-					result_result = result_result.Intersected(temp_rect);
-				}
-
-				int blockArea = min(result_result.Width(), result_result.Height())/resolution;
-
-				//获取公共区域的中心
-				double intersect_center_x = 0, intersect_center_y = 0;
-				intersect_center_x = (result_result.left+result_result.right)/2;
-				intersect_center_y = (result_result.top+result_result.bottom)/2;
-
-
-				//限制buffer范围
-				RectFExt buf_rect;
-				buf_rect.left = px[i]-blockArea*resolution;
-				buf_rect.right = px[i]+blockArea*resolution;
-				buf_rect.bottom = py[i]-blockArea*resolution;
-				buf_rect.top = py[i]+blockArea*resolution;
-				buf_rect = buf_rect.Intersected(result_result);
-				if (buf_rect.IsEmpty())
-				{
-					continue;
-				}
-				float buffer_left = 0, buffer_right = 0,
-					buffer_bottom = 0, buffer_top = 0;
-				pImage->World2Image(buf_rect.left, buf_rect.bottom,
-					&buffer_left, &buffer_top);
-				pImage->World2Image(buf_rect.right, buf_rect.top,
-					&buffer_right, &buffer_bottom);
-
-				float intersect_center_buffer_x = 0, intersect_center_buffer_y = 0;
-				pImage->World2Image(intersect_center_x, intersect_center_y,
-					&intersect_center_buffer_x, &intersect_center_buffer_y);
-
-				int buffer_height = int(buffer_bottom-buffer_top+0.99999);
-				int buffer_width = int(buffer_right-buffer_left+0.99999);
-
-				unsigned short* buf = new unsigned short[buffer_height*buffer_width];
-				memset(buf, 0, buffer_height*buffer_width*sizeof(unsigned short));
-				pImage->ReadImg(buffer_left, buffer_top, buffer_right, buffer_bottom,
-					(unsigned char*)buf, buffer_width, buffer_height, 1, 0, 0,
-					buffer_width, buffer_height, -1, 0);
-				int start_col = int(fx-buffer_left+0.99999);
-				int start_row = int(fy-buffer_top+0.99999);
-				int end_col = int(intersect_center_buffer_x-buffer_left+0.99999);
-				int end_row = int(intersect_center_buffer_y-buffer_top+0.99999);
-
-				if (start_col >= buffer_width || start_row >= buffer_height)
-				{
-					delete []buf;
-					buf = NULL;
-					continue;
-				}
-				bool isFind = false;
-				int ncount = 0;
-				const int count_limit = 8;
-
-				//往公共区域中心移点
-				int xoff = 0, yoff = 0;
-				xoff = end_col-start_col;
-				yoff = end_row-start_row;
-				double xite = 0, yite = 0;
-
-				if (abs(xoff) > abs(yoff)  && xoff != 0)
-				{
-					yite = yoff/(double)abs(xoff);
-					xite = xoff > 0 ? 1 : -1;
-				}
-				else if (abs(yoff) > abs(xoff) && yoff != 0)
-				{
-					xite = xoff/(double)abs(yoff);
-					yite = yoff > 0 ? 1 : -1;
-				}
-				else if (xoff = 0)
-				{
-					xite = 0;
-					yite = yoff >= 0 ? 1 : -1;
-				}
-				else if (yoff = 0)
-				{
-					yite = 0;
-					xite = xite >= 0 ? 1 : -1;
-				}
-				else if (abs(xoff) == abs(yoff))
-				{
-					xite = xite >= 0 ? 1 : -1;
-					yite = yoff >= 0 ? 1 : -1;
-				}
-
-				int limit_x = 0, limit_y = 0;
-				if (end_col < start_col)
-				{
-					limit_x = min(end_col, 0);
-				}
-				else if (end_col > start_col)
-				{
-					limit_x = max(end_col, buffer_width);
-				}
-				if (limit_x < 0)
-				{
-					limit_x = 0;
-				}
-				else if (limit_x > buffer_width)
-				{
-					limit_x = buffer_width;
-				}
-				if (end_row < start_row)
-				{
-					limit_y = min(end_row, 0);
-				}
-				else if (end_row > start_row)
-				{
-					limit_y = max(end_row, buffer_height);
-				}
-				if (limit_y < 0)
-				{
-					limit_y = 0;
-				}
-				else if (limit_y > buffer_height)
-				{
-					limit_y = buffer_height;
-				}
-
-				double findx = start_col, findy = start_row;
-				if (xite == 0)
-				{
-					while ((findy-limit_y)*(findy-yite-limit_y) > 0)
-					{
-						if (buf[int(findy)*buffer_width+int(findx)] > 10)
-						{
-							ncount = 0;
-						}
-						else
-						{
-							++ncount;
-							if (ncount >= count_limit)
-							{
-								isFind = true;
-								auto poly = polygons.begin();
-								while (poly != polygons.end())
-								{
-									poly->ResetPoint("", geox, geoy,
-										geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
-									++poly;
-								}
-								break;
-							}
-						}
-						findy += yite;
-						if (findy < 0 || int(findy) >= buffer_width)
-						{
-							break;
-						}
-					}
-				}
-				else if (yite == 0)
-				{
-					while ((findx-limit_x)*(findx-xite-limit_x) > 0)
-					{
-						if (buf[int(findy)*buffer_width+int(findx)] > 10)
-						{
-							ncount = 0;
-						}
-						else
-						{
-							++ncount;
-							if (ncount >= count_limit)
-							{
-								isFind = true;
-								auto poly = polygons.begin();
-								while (poly != polygons.end())
-								{
-									poly->ResetPoint("", geox, geoy,
-										geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
-									++poly;
-								}
-								break;
-							}
-						}
-						findx += xite;
-						if (findx < 0 || int(findx) >= buffer_width)
-						{
-							break;
-						}
-					}
-				}
-				else
-				{
-					while ((findx-limit_x)*(findx-xite-limit_x) > 0 && (findy-limit_y)*(findy-yite-limit_y) > 0)
-					{
-						if (buf[int(findy)*buffer_width+int(findx)] != 0)
-						{
-							ncount = 0;
-						}
-						else
-						{
-							++ncount;
-							if (ncount >= count_limit)
-							{
-								isFind = true;
-								auto poly = polygons.begin();
-								while (poly != polygons.end())
-								{
-									poly->ResetPoint("", geox, geoy,
-										geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
-									++poly;
-								}
-								break;
-							}
-						}
-						findy += yite;
-						findx += xite;
-						if (findx < 0 || int(findx) >= buffer_width)
-						{
-							break;
-						}
-						if (findy < 0 || int(findy) >= buffer_width)
-						{
-							break;
-						}
-					}
-				}
-				delete []buf;
-				buf = NULL;
-			}
-		}
-		++polygon_ite;
-	}
-
-// 	polygon_ite = polygons.begin();
-// 	while (polygon_ite != polygons.end())
-// 	{
-// 		polygon_ite->Output(strRrlxPath.GetBuffer(0));
-// 		++polygon_ite;
-// 	}
-// 
-// 	return true;
 	
 	//获取dxf中的多边形
 	CDrawing m_dxffile;
@@ -1224,13 +664,54 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		pImage->Release();
 		tempImage->Release();
 		return false;
+	}//获取dxf中的多边形结束
+
+	timer = clock()-starter;
+	outtime<<"其他操作耗时："<<timer<<"ms\n";
+
+
+	if (S_FALSE == pImage->Open(strTifPath.AllocSysString(), modeRead))
+	{
+		pImage->Release();
+		return false;
 	}
-	
-	//走最短路径
+
+	double resolution = 0;
+	double lfXOrigin = 0, lfYOrigin = 0;
+	pImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &resolution);
+	int nWidth = 0, nHeight = 0;
+	pImage->GetCols(&nWidth);
+	pImage->GetRows(&nHeight);
+	double lfXEnd = 0, lfYEnd = 0;
+	lfXEnd = lfXOrigin+nWidth*resolution;
+	lfYEnd = lfYOrigin+nHeight*resolution;
+
+	double pEdgex[4];
+	double pEdgey[4];
+
+	pEdgex[0] = lfXOrigin;
+	pEdgex[1] = lfXOrigin;
+	pEdgex[2] = lfXEnd;
+	pEdgex[3] = lfXEnd;
+	pEdgey[0] = lfYEnd;
+	pEdgey[1] = lfYOrigin;
+	pEdgey[2] = lfYOrigin;
+	pEdgey[3] = lfYEnd;
+
+
 	IShortPaths* shortpath = NULL;
-	CoCreateInstance(CLSID_ShortPaths, NULL, CLSCTX_ALL, IID_IShortPaths, (void**)&shortpath);
+	HRESULT hr = CoCreateInstance(CLSID_ShortPaths, NULL, CLSCTX_ALL, IID_IShortPaths, (void**)&shortpath);
 	
+	if (FAILED(hr))
+	{
+		pImage->Close();
+		pImage->Release();
+		tempImage->Release();
+		return false;
+	}
+
 #define NEXT(a) ((a+1==polygon_ite->np_.end()) ? (polygon_ite->np_.begin()) : (a+1))
+
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
@@ -1240,7 +721,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 
 		auto ite = polygon_ite->np_.begin();
 		int point_index = 0;
-		
+
 		while (ite != polygon_ite->np_.end())
 		{
 			if (ite->shared_by_ > 1 && ite->available_)
@@ -1305,6 +786,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 						}
 					}
 
+
 					//找出另一关联影像
 					CString strIndexName = "";
 					for (int name_index = 0; name_index < ite->shared_by_-1; ++name_index)
@@ -1321,6 +803,13 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 						{
 							break;
 						}
+					}
+
+					if (strIndexName == "")
+					{
+						++point_index;
+						++ite;
+						continue;
 					}
 
 					//取有效多边形求交
@@ -1389,7 +878,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 					c.AddPaths(effect, ptSubject, true);
 					c.AddPaths(temp, ptClip, true);
 					Paths result = temp;
-					/*c.Execute(ctIntersection, result);*/
+					c.Execute(ctIntersection, result);
 
 					if (result.size() == 0)
 					{
@@ -1404,11 +893,12 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 					double* tempy = new double[effect_point_count];
 					memset(tempy, 0, sizeof(double)*effect_point_count);
 
-					for (int count = 0; count < effect_point_count; ++count)
+					for (int i = 0; i < effect_point_count; ++i)
 					{
-						tempx[count] = result[0][count].X/PRECISION;
-						tempy[count] = result[0][count].Y/PRECISION;
+						tempx[i] = result[0][i].X/PRECISION;
+						tempy[i] = result[0][i].Y/PRECISION;
 					}
+					result.clear();
 
 					//最短路径
 					double* lpXout = NULL;
@@ -1436,12 +926,12 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 						the_rect.bottom = lfYOrigin;
 						the_rect.top = lfYOrigin+nYSize*lfCellSize;
 
-						RectFExt result_result = the_rect;
+						RectFExt rect_result = the_rect;
 
 						CString strSameIndex = "";
 						for (int j = 0; j < ite->shared_by_-1; ++j)
 						{
-							for (int k = 0; k < NEXT(ite)->shared_by_-1; ++k)
+							for (int k = 0; k < (NEXT(ite))->shared_by_-1; ++k)
 							{
 								if (NEXT(ite)->index_name_n_[k].CompareNoCase(ite->index_name_n_[j]) == 0)
 								{
@@ -1454,8 +944,16 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 								break;
 							}
 						}
+						if (strSameIndex == "")
+						{
+							++point_index;
+							++ite;
+							continue;
+						}
+
 						image_path = path+strSameIndex+strExt;
 						tempImage->Open(image_path.AllocSysString(), modeRead);
+
 						RectFExt temp_rect;
 
 						int nx = 0, ny = 0;
@@ -1472,18 +970,19 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 						temp_rect.bottom = yorigin;
 						temp_rect.top = yorigin+ny*cellsize;
 
-						result_result = result_result.Intersected(temp_rect);
+						rect_result = rect_result.Intersected(temp_rect);
 
 						double rect_x[4];
 						double rect_y[4];
-						rect_x[0] = result_result.left;
-						rect_x[1] = result_result.left;
-						rect_x[2] = result_result.right;
-						rect_x[3] = result_result.right;
-						rect_y[0] = result_result.top;
-						rect_y[1] = result_result.bottom;
-						rect_y[2] = result_result.bottom;
-						rect_y[3] = result_result.top;
+						rect_x[0] = rect_result.left;
+						rect_x[1] = rect_result.left;
+						rect_x[2] = rect_result.right;
+						rect_x[3] = rect_result.right;
+						rect_y[0] = rect_result.top;
+						rect_y[1] = rect_result.bottom;
+						rect_y[2] = rect_result.bottom;
+						rect_y[3] = rect_result.top;
+
 						double result_x = 0, result_y = 0;
 						if (GetCrossPoint(short_start_x, short_start_y, short_end_x, short_end_y, rect_x, rect_y, 4, result_x, result_y))
 						{
@@ -1564,6 +1063,9 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		}
 		++polygon_ite;
 	}
+
+	timer = clock()-starter;
+	outtime<<"最短路径耗时："<<timer<<"ms\n";
 	
 	vecPointNum.clear();
 	auto itex = vecX.begin();
@@ -1582,100 +1084,217 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		++itey;
 	}
 	vecY.clear();
-	
+
 	//删除造成相交的点
-// 	polygon_ite = polygons.begin();
-// 	while (polygon_ite != polygons.end())
-// 	{
-// 		double* px = polygon_ite->px_;
-// 		double* py = polygon_ite->py_;
-// 		int point_count = polygon_ite->point_count_;
-// 		for (int count = 0; count < point_count; ++count)
-// 		{
-// 			if (polygon_ite->np_[count].shared_by_ == 2)
-// 			{
-// 				if (polygon_ite->np_[count].available_ == false)
-// 				{
-// 					auto polygon_ite2 = polygons.begin();
-// 					bool isin = false;
-// 					while (polygon_ite2 != polygons.end())
-// 					{
-// 						CString strID = polygon_ite2->index_name_;
-// 						if (strID.CompareNoCase(polygon_ite->np_[count].index_name_n_[0]) != 0 &&
-// 							strID.CompareNoCase(polygon_ite->index_name_) != 0)
-// 						{
-// 							isin |= (-1 != PtInRegionZXEx(px[count], py[count], polygon_ite2->px_, polygon_ite2->py_, polygon_ite2->point_count_, 0.00001));
-// 						}
-// 						++polygon_ite2;
-// 					}
-// 					if (!isin)
-// 					{
-// 						polygon_ite->np_[count].available_ = true;
-// 					}
-// 				}
-// 			}
-// 		}
-// 		++polygon_ite;
-// 	}
-// 	polygon_ite = polygons.begin();
-// 	while (polygon_ite != polygons.end())
-// 	{
-// 		polygon_ite->DeletePoint();
-// 		++polygon_ite;
-// 	}
+ 	polygon_ite = polygons.begin();
+ 	while (polygon_ite != polygons.end())
+ 	{
+ 		double* px = polygon_ite->px_;
+ 		double* py = polygon_ite->py_;
+ 		int point_count = polygon_ite->point_count_;
+ 		for (int count = 0; count < point_count; ++count)
+ 		{
+ 			if (polygon_ite->np_[count].shared_by_ == 2)
+ 			{
+ 				if (polygon_ite->np_[count].available_ == false)
+ 				{
+ 					auto polygon_ite2 = polygons.begin();
+ 					bool isin = false;
+ 					while (polygon_ite2 != polygons.end())
+ 					{
+ 						CString strID = polygon_ite2->index_name_;
+ 						if (strID.CompareNoCase(polygon_ite->np_[count].index_name_n_[0]) != 0 &&
+ 							strID.CompareNoCase(polygon_ite->index_name_) != 0)
+ 						{
+ 							isin |= (-1 != PtInRegionZXEx(px[count], py[count], polygon_ite2->px_, polygon_ite2->py_, polygon_ite2->point_count_, 0.00001));
+ 						}
+ 						++polygon_ite2;
+ 					}
+ 					if (!isin)
+ 					{
+ 						polygon_ite->np_[count].available_ = true;
+ 					}
+ 				}
+ 			}
+ 		}
+ 		++polygon_ite;
+ 	}
+ 	polygon_ite = polygons.begin();
+ 	while (polygon_ite != polygons.end())
+ 	{
+ 		polygon_ite->DeletePoint();
+ 		++polygon_ite;
+ 	}
+
+	timer = clock()-starter;
+	outtime<<"第一次删点耗时："<<timer<<"ms\n";
+
+	//第二次删点
+	while (true)
+	{
+		int cross_count = 0;
+		polygon_ite = polygons.begin();
+		while (polygon_ite != polygons.end())
+		{
+			double* px = polygon_ite->px_;
+			double* py = polygon_ite->py_;
+			int point_count = polygon_ite->point_count_;
+			for (int count = 0; count < point_count; ++count)
+			{
+				if (polygon_ite->np_[count].shared_by_ == 2 && polygon_ite->np_[count].is_edge_ == false)
+				{
+					auto polygon_ite2 = polygons.begin();
+					bool isin = false;
+					while (polygon_ite2 != polygons.end())
+					{
+						CString strID = polygon_ite2->index_name_;
+						if (strID.CompareNoCase(polygon_ite->np_[count].index_name_n_[0]) != 0 &&
+							strID.CompareNoCase(polygon_ite->index_name_) != 0)
+						{
+							isin |= (-1 != PtInRegionZXEx(px[count], py[count], polygon_ite2->px_, polygon_ite2->py_, polygon_ite2->point_count_, 0.00001));
+						}
+						++polygon_ite2;
+					}
+					if (isin)
+					{
+						++cross_count;
+						polygon_ite->np_[count].available_ = false;
+					}
+				}
+			}
+			++polygon_ite;
+		}
+		if (cross_count == 0)
+		{
+			break;
+		}
+		polygon_ite = polygons.begin();
+		while (polygon_ite != polygons.end())
+		{
+			polygon_ite->DeletePoint();
+			++polygon_ite;
+		}
+	}
+
+	timer = clock()-starter;
+	outtime<<"第二次删点耗时："<<timer<<"ms\n";
 
 
-	//解决多边形自交
-// 	polygon_ite = polygons.begin();
-// 	while (polygon_ite != polygons.end())
-// 	{
-// 		double* px = polygon_ite->px_;
-// 		double* py = polygon_ite->py_;
-// 		int count = polygon_ite->point_count_;
-// 		if (count == 0)
-// 		{
-// 			++polygon_ite;
-// 			continue;
-// 		}
-// 		int index_front = 0, index_back = (index_front+count-1)%count;
-// 
-// 		for (; index_front < count; ++index_front)
-// 		{
-// 			for (index_back = (index_front+count-1)%count;
-// 				index_back != (index_front+2)%count;
-// 				)
-// 			{
-// 				if(LineCrossLine(px[index_front], py[index_front],
-// 					px[(index_front+1)%count], py[(index_front+1)%count],
-// 					px[index_back], py[index_back],
-// 					px[(index_back-1+count)%count], py[(index_back-1+count)%count]))
-// 				{
-// 					if (polygon_ite->np_[(index_front+1)%count].index_name_n_[0] == polygon_ite->np_[(index_back-1+count)%count].index_name_n_[0])
-// 					{
-// 						double px_front = px[index_front];
-// 						double py_front = py[index_front];
-// 						double px_front_next = px[(index_front+1)%count];
-// 						double py_front_next = py[(index_front+1)%count];
-// 						double px_back = px[index_back];
-// 						double py_back = py[index_back];
-// 						double px_back_previous = px[(index_back-1+count)%count];
-// 						double py_back_previous = py[(index_back-1+count)%count];
-// 						auto temp_ite = polygons.begin();
-// 						while (temp_ite != polygons.end())
-// 						{
-// 							temp_ite->RotatePoints(px_front, py_front, px_front_next, py_front_next,
-// 								px_back, py_back, px_back_previous, py_back_previous);
-// 							++temp_ite;
-// 						}
-// 						continue;
-// 					}
-// 				}
-// 				index_back = (index_back+count-1)%count;
-// 			}
-// 		}
-// 
-// 		++polygon_ite;
-// 	}
+	//删除自交的点
+	while (true)
+	{
+		int cross_count = 0;
+		polygon_ite = polygons.begin();
+		while (polygon_ite != polygons.end())
+		{
+			double* px = polygon_ite->px_;
+			double* py = polygon_ite->py_;
+			int point_count = polygon_ite->point_count_;
+			if (point_count == 0)
+			{
+				++polygon_ite;
+				continue;
+			}
+
+			int index_front = 0, index_back = (index_front+point_count-1)%point_count;
+
+			if (polygon_ite->is_cross_self_ == -1 || polygon_ite->is_cross_self_ == 1)
+			{
+				int temp_cross_count = 0;
+				for (; index_front < point_count; ++index_front)
+				{
+					for (index_back = (index_front+point_count-1)%point_count;
+						index_back != (index_front+2)%point_count;
+						index_back = (index_back+point_count-1)%point_count)
+					{
+						if(LineCrossLine(px[index_front], py[index_front],
+							px[(index_front+1)%point_count], py[(index_front+1)%point_count],
+							px[index_back], py[index_back],
+							px[(index_back-1+point_count)%point_count], 
+							py[(index_back-1+point_count)%point_count]))
+						{
+							polygon_ite->is_cross_self_ = 1;
+							++cross_count;
+							++temp_cross_count;
+							if (polygon_ite->np_[index_front].shared_by_ == 2 &&
+								polygon_ite->np_[index_front].is_edge_ == false)
+							{
+								polygon_ite->np_[index_front].available_ = false;
+							}
+							if (polygon_ite->np_[(index_front+1)%point_count].shared_by_ == 2 &&
+								polygon_ite->np_[(index_front+1)%point_count].is_edge_ == false)
+							{
+								polygon_ite->np_[(index_front+1)%point_count].available_ = false;
+							}
+							if (polygon_ite->np_[index_back].shared_by_ == 2 &&
+								polygon_ite->np_[index_back].is_edge_ == false)
+							{
+								polygon_ite->np_[index_back].available_ = false;
+							}
+							if (polygon_ite->np_[(index_back-1+point_count)%point_count].shared_by_ == 2 &&
+								polygon_ite->np_[(index_back-1+point_count)%point_count].is_edge_ == false)
+							{
+								polygon_ite->np_[(index_back-1+point_count)%point_count].available_ = false;
+							}
+						}
+					}
+				}
+				if (temp_cross_count == 0)
+				{
+					polygon_ite->is_cross_self_ = 0;
+				}
+			}
+			
+			++polygon_ite;
+		}
+
+		polygon_ite = polygons.begin();
+		while (polygon_ite != polygons.end())
+		{
+			auto ite = polygon_ite->np_.begin();
+			int index1 = 0;
+			while (ite != polygon_ite->np_.end())
+			{
+				if (ite->shared_by_ == 2)
+				{
+					auto temp_ite = std::find(polygons.begin(), polygons.end(),
+						PolygonExt2(0, NULL, NULL, ite->index_name_n_[0]));
+					for (int index2 = 0; index2 < temp_ite->point_count_; ++index2)
+					{
+						if (fabs(polygon_ite->px_[index1]-temp_ite->px_[index2]) < 1e-5 &&
+							fabs(polygon_ite->py_[index1]-temp_ite->py_[index2]) < 1e-5)
+						{
+							if (temp_ite->np_[index2].available_ == false)
+							{
+								ite->available_ = false;
+							}
+							break;
+						}
+					}
+				}
+				++index1;
+				++ite;
+			}
+
+			++polygon_ite;
+		}
+
+		if (cross_count == 0)
+		{
+			break;
+		}
+		polygon_ite = polygons.begin();
+		while (polygon_ite != polygons.end())
+		{
+			polygon_ite->DeletePoint();
+			++polygon_ite;
+		}
+	}
+
+	timer = clock()-starter;
+	outtime<<"解决自交耗时："<<timer<<"ms\n";
+
+	outtime.close();
 	
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())

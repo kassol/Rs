@@ -194,7 +194,1129 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 
 	timer = clock()-starter;
 	outtime<<"边界点耗时："<<timer<<"ms\n";
+
+	// 	if (!EffectPoly(vecImagePath))
+	// 	{
+	// 		return false;
+	// 	}
+
+	//读取有效区域
+	std::vector<PolygonExt2> EffPolygons;
+	path_ite = vecImagePath.begin();
+	while (path_ite != vecImagePath.end())
+	{
+		CString index_name = *path_ite;
+		index_name = index_name.Right(index_name.GetLength()-index_name.ReverseFind('\\')-1);
+		index_name = index_name.Left(index_name.ReverseFind('.'));
+
+		CString ep_name = *path_ite+_T(".ep");
+		std::fstream infile;
+		infile.open(ep_name.GetBuffer(0), std::ios::in);
+		int point_count = 0;
+		infile>>point_count;
+		double* px = new double[point_count];
+		double* py = new double[point_count];
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i];
+		}
+		EffPolygons.push_back(PolygonExt2(point_count, px, py, index_name));
+
+		infile.close();
+		++path_ite;
+	}
+
+	//dxf转dem
+	IImageX* pImage = NULL;
+	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&pImage);
+	if (S_FALSE == pImage->Open(vecImagePath.front().AllocSysString(), modeRead))
+	{
+		pImage->Release();
+		return false;
+	}
+	double tmp_cellsize = 0, tmp = 0;
+	pImage->GetGrdInfo(&tmp, &tmp, &tmp_cellsize);
+	pImage->Close();
+	if (strDxfPath.Right(3).CompareNoCase(_T("dxf")) == 0 && !Dxf2Dsm(strDxfPath, tmp_cellsize))
+	{
+		return false;
+	}
+	CString strDsmPath = strDxfPath.Left(strDxfPath.ReverseFind('.'));
+	strDsmPath += _T(".dem");
+
+	//dem转tif
+	if (!Dsm2Tif(strDsmPath))
+	{
+		return false;
+	}
+	CString strTifPath = strDsmPath.Left(strDsmPath.ReverseFind('.'));
+	strTifPath += _T(".tif");
+
+	//根据dsm移三四度点
+	if (S_FALSE == pImage->Open(strTifPath.AllocSysString(), modeRead))
+	{
+		pImage->Release();
+		return false;
+	}
+
+	double resolution = 0;
+	double lfXOrigin = 0, lfYOrigin = 0;
+	pImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &resolution);
+	int nWidth = 0, nHeight = 0;
+	pImage->GetCols(&nWidth);
+	pImage->GetRows(&nHeight);
+	double lfXEnd = 0, lfYEnd = 0;
+	lfXEnd = lfXOrigin+nWidth*resolution;
+	lfYEnd = lfYOrigin+nHeight*resolution;
+
+	double pEdgex[4];
+	double pEdgey[4];
+
+	pEdgex[0] = lfXOrigin;
+	pEdgex[1] = lfXOrigin;
+	pEdgex[2] = lfXEnd;
+	pEdgex[3] = lfXEnd;
+	pEdgey[0] = lfYEnd;
+	pEdgey[1] = lfYOrigin;
+	pEdgey[2] = lfYOrigin;
+	pEdgey[3] = lfYEnd;
 	
+	IImageX* tempImage = NULL;
+	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int num = polygon_ite->point_count_;
+
+		CString image_path = path+polygon_ite->index_name_+strExt;
+		if (S_FALSE == tempImage->Open(image_path.AllocSysString(), modeRead))
+		{
+			pImage->Close();
+			pImage->Release();
+			tempImage->Release();
+			return false;
+		}
+		RectFExt the_rect;
+		int nXSize = 0, nYSize = 0;
+		double lfCellSize = 0;
+		double lfXOrigin = 0, lfYOrigin = 0;
+
+		tempImage->GetCols(&nXSize);
+		tempImage->GetRows(&nYSize);
+		tempImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfCellSize);
+		tempImage->Close();
+
+		the_rect.left = lfXOrigin;
+		the_rect.right = lfXOrigin+nXSize*lfCellSize;
+		the_rect.bottom = lfYOrigin;
+		the_rect.top = lfYOrigin+nYSize*lfCellSize;
+
+		for (int i = 0; i < num; ++i)
+		{
+			if (polygon_ite->np_[i].shared_by_ > 2)
+			{
+				double geox = px[i];
+				double geoy = py[i];
+				float fx = 0, fy = 0;
+				pImage->World2Image(geox, geoy, &fx, &fy);
+				unsigned char height;
+				pImage->ReadImg((int)fx, (int)fy, (int)(fx+1), (int)(fy+1),
+					&height, 1, 1, 1, 0, 0,
+					1, 1, -1, 0);
+				if (height < 10)
+				{
+					continue;
+				}
+
+				//获取限定区域
+				int shared_by = polygon_ite->np_[i].shared_by_;
+				double* limit_poly_x = new double[shared_by];
+				double* limit_poly_y = new double[shared_by];
+				memset(limit_poly_x, 0, sizeof(double)*shared_by);
+				memset(limit_poly_y, 0, sizeof(double)*shared_by);
+				for (int limit_index = i-1; limit_index != i;
+					limit_index = (limit_index-1+num)%num)
+				{
+					if (polygon_ite->np_[limit_index].shared_by_ > 2 ||
+						polygon_ite->np_[limit_index].is_edge_ == true)
+					{
+						limit_poly_x[0] = px[limit_index];
+						limit_poly_y[0] = py[limit_index];
+					}
+				}
+				for (int limit_index = i+1; limit_index != i;
+					limit_index = (limit_index+1)%num)
+				{
+					if (polygon_ite->np_[limit_index].shared_by_ > 2 ||
+						polygon_ite->np_[limit_index].is_edge_ == true)
+					{
+						limit_poly_x[1] = px[limit_index];
+						limit_poly_y[1] = py[limit_index];
+					}
+				}
+				if (polygon_ite->np_[i].shared_by_ == 3)
+				{
+					auto limit_ite = std::find(polygons.begin(), polygons.end(),
+						PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[0]));
+					if (limit_ite != polygons.end())
+					{
+						double* temp_px = limit_ite->px_;
+						double* temp_py = limit_ite->py_;
+						int temp_count = limit_ite->point_count_;
+						for (int count = 0; count < temp_count; ++count)
+						{
+							if (fabs(temp_px[count]-px[i]) < 1e-5 &&
+								fabs(temp_py[count]-py[i]) < 1e-5)
+							{
+								int limit_index = 0;
+								for (limit_index = (count-1+temp_count)%temp_count; limit_index != count;
+									limit_index = (limit_index-1+temp_count)%temp_count)
+								{
+									if (limit_ite->np_[limit_index].shared_by_ > 2 ||
+										limit_ite->np_[limit_index].is_edge_ == true)
+									{
+										break;
+									}
+								}
+								int limit_index2 = 0;
+								for (limit_index2 = (count+1)%temp_count; limit_index2 != count;
+									limit_index2 = (limit_index2+1)%temp_count)
+								{
+									if (limit_ite->np_[limit_index2].shared_by_ > 2 ||
+										limit_ite->np_[limit_index2].is_edge_ == true)
+									{
+										break;
+									}
+								}
+								if (fabs(temp_px[limit_index]-limit_poly_x[0]) < 1e-5 &&
+									fabs(temp_py[limit_index]-limit_poly_y[0]) < 1e-5)
+								{
+									limit_poly_x[2] = temp_px[limit_index2];
+									limit_poly_y[2] = temp_py[limit_index2];
+									break;
+								}
+								else if (fabs(temp_px[limit_index]-limit_poly_x[1]) < 1e-5 &&
+									fabs(temp_py[limit_index]-limit_poly_y[1]) < 1e-5)
+								{
+									limit_poly_x[2] = temp_px[limit_index2];
+									limit_poly_y[2] = temp_py[limit_index2];
+									break;
+								}
+								else
+								{
+									if (fabs(temp_px[limit_index2]-limit_poly_x[0]) < 1e-5 &&
+										fabs(temp_py[limit_index2]-limit_poly_y[0]) < 1e-5)
+									{
+										limit_poly_x[2] = temp_px[limit_index];
+										limit_poly_y[2] = temp_py[limit_index];
+										break;
+									}
+									else if (fabs(temp_px[limit_index2]-limit_poly_x[1]) < 1e-5 &&
+										fabs(temp_py[limit_index2]-limit_poly_y[1]) < 1e-5)
+									{
+										limit_poly_x[2] = temp_px[limit_index];
+										limit_poly_y[2] = temp_py[limit_index];
+										break;
+									}
+									else
+									{
+										if (limit_poly_x != NULL)
+										{
+											delete []limit_poly_x;
+											delete []limit_poly_y;
+											limit_poly_x = NULL;
+											limit_poly_y = NULL;
+										}
+										break;
+									}
+								}
+							}
+						}
+					}
+				}
+				else if (shared_by == 4)
+				{
+					for (int temp = 0; temp < 2; ++temp)
+					{
+						auto limit_ite = std::find(polygons.begin(), polygons.end(),
+							PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[temp]));
+						if (limit_ite == polygons.end())
+						{
+							if (limit_poly_x != NULL)
+							{
+								delete []limit_poly_x;
+								delete []limit_poly_y;
+								limit_poly_x = NULL;
+								limit_poly_y = NULL;
+							}
+							break;
+						}
+						double* temp_px = limit_ite->px_;
+						double* temp_py = limit_ite->py_;
+						int temp_count = limit_ite->point_count_;
+						for (int count = 0; count < temp_count; ++count)
+						{
+							if (fabs(temp_px[count]-px[i]) < 1e-5 &&
+								fabs(temp_py[count]-py[i]) < 1e-5)
+							{
+								int limit_index = 0;
+								for (limit_index = (count-1+temp_count)%temp_count; limit_index != count;
+									limit_index = (limit_index-1+temp_count)%temp_count)
+								{
+									if (limit_ite->np_[limit_index].shared_by_ > 2 ||
+										limit_ite->np_[limit_index].is_edge_ == true)
+									{
+										break;
+									}
+								}
+								int limit_index2 = 0;
+								for (limit_index2 = (count+1)%temp_count; limit_index2 != count;
+									limit_index2 = (limit_index2+1)%temp_count)
+								{
+									if (limit_ite->np_[limit_index2].shared_by_ > 2 ||
+										limit_ite->np_[limit_index2].is_edge_ == true)
+									{
+										break;
+									}
+								}
+								if (fabs(temp_px[limit_index]-limit_poly_x[0]) < 1e-5 &&
+									fabs(temp_py[limit_index]-limit_poly_y[0]) < 1e-5)
+								{
+									if (limit_poly_x[2] == 0)
+									{
+										limit_poly_x[2] = temp_px[limit_index2];
+										limit_poly_y[2] = temp_py[limit_index2];
+									}
+									else
+									{
+										limit_poly_x[3] = temp_px[limit_index2];
+										limit_poly_y[3] = temp_py[limit_index2];
+									}
+								}
+								else if (fabs(temp_px[limit_index]-limit_poly_x[1]) < 1e-5 &&
+									fabs(temp_py[limit_index]-limit_poly_y[1]) < 1e-5)
+								{
+									if (limit_poly_x[2] == 0)
+									{
+										limit_poly_x[2] = temp_px[limit_index2];
+										limit_poly_y[2] = temp_py[limit_index2];
+									}
+									else
+									{
+										limit_poly_x[3] = temp_px[limit_index2];
+										limit_poly_y[3] = temp_py[limit_index2];
+									}
+								}
+								else if (fabs(temp_px[limit_index]-limit_poly_x[2]) < 1e-5 &&
+									fabs(temp_py[limit_index]-limit_poly_y[2]) < 1e-5)
+								{
+									limit_poly_x[3] = temp_px[limit_index2];
+									limit_poly_y[3] = temp_py[limit_index2];
+								}
+								else
+								{
+									if (limit_poly_x[2] == 0)
+									{
+										limit_poly_x[2] = temp_px[limit_index2];
+										limit_poly_y[2] = temp_py[limit_index2];
+									}
+									else
+									{
+										limit_poly_x[3] = temp_px[limit_index2];
+										limit_poly_y[3] = temp_py[limit_index2];
+									}
+								}
+
+								if (fabs(temp_px[limit_index2]-limit_poly_x[0]) < 1e-5 &&
+									fabs(temp_py[limit_index2]-limit_poly_y[0]) < 1e-5)
+								{
+									if (limit_poly_x[2] == 0)
+									{
+										limit_poly_x[2] = temp_px[limit_index];
+										limit_poly_y[2] = temp_py[limit_index];
+									}
+									else
+									{
+										limit_poly_x[3] = temp_px[limit_index];
+										limit_poly_y[3] = temp_py[limit_index];
+									}
+								}
+								else if (fabs(temp_px[limit_index2]-limit_poly_x[1]) < 1e-5 &&
+									fabs(temp_py[limit_index2]-limit_poly_y[1]) < 1e-5)
+								{
+									if (limit_poly_x[2] == 0)
+									{
+										limit_poly_x[2] = temp_px[limit_index];
+										limit_poly_y[2] = temp_py[limit_index];
+									}
+									else
+									{
+										limit_poly_x[3] = temp_px[limit_index];
+										limit_poly_y[3] = temp_py[limit_index];
+									}
+								}
+								else if (fabs(temp_px[limit_index2]-limit_poly_x[2]) < 1e-5 &&
+									fabs(temp_py[limit_index2]-limit_poly_y[2]) < 1e-5)
+								{
+									if (fabs(temp_px[limit_index]-limit_poly_x[0]) > 1e-5 &&
+										fabs(temp_py[limit_index]-limit_poly_y[0]) > 1e-5 &&
+										fabs(temp_px[limit_index]-limit_poly_x[1]) > 1e-5 &&
+										fabs(temp_py[limit_index]-limit_poly_y[1]) > 1e-5)
+									{
+										limit_poly_x[3] = temp_px[limit_index];
+										limit_poly_y[3] = temp_py[limit_index];
+									}
+								}
+								else
+								{
+									if (fabs(temp_px[limit_index2]-limit_poly_x[0]) > 1e-5 &&
+										fabs(temp_py[limit_index2]-limit_poly_y[0]) > 1e-5 &&
+										fabs(temp_px[limit_index2]-limit_poly_x[1]) > 1e-5 &&
+										fabs(temp_py[limit_index2]-limit_poly_y[1]) > 1e-5)
+									{
+										limit_poly_x[3] = temp_px[limit_index2];
+										limit_poly_y[3] = temp_py[limit_index2];
+									}
+								}
+
+								if (limit_poly_x[2] == 0)
+								{
+									if (limit_poly_x != NULL)
+									{
+										delete []limit_poly_x;
+										delete []limit_poly_y;
+										limit_poly_x = NULL;
+										limit_poly_y = NULL;
+									}
+									break;
+								}
+								else if (limit_poly_x[3] != 0)
+								{
+									break;
+								}
+							}
+						}
+					}
+				}
+				else
+				{
+					if (limit_poly_x != NULL)
+					{
+						delete []limit_poly_x;
+						delete []limit_poly_y;
+						limit_poly_x = NULL;
+						limit_poly_y = NULL;
+					}
+					continue;
+				}
+
+				if (limit_poly_x == NULL)
+				{
+					continue;
+				}
+
+				if (shared_by == 4)
+				{
+					double d1 = 0, d2 = 0, d3 = 3, d4 = 0;
+					d1 = (limit_poly_x[2]-limit_poly_x[1])*(limit_poly_y[0]-limit_poly_y[1])
+						-(limit_poly_x[0]-limit_poly_x[1])*(limit_poly_y[2]-limit_poly_y[1]);
+					d2 = (limit_poly_x[2]-limit_poly_x[1])*(limit_poly_y[3]-limit_poly_y[1])
+						-(limit_poly_x[3]-limit_poly_x[1])*(limit_poly_y[2]-limit_poly_y[1]);
+					d3 = (limit_poly_x[3]-limit_poly_x[0])*(limit_poly_y[1]-limit_poly_y[0])
+						-(limit_poly_x[1]-limit_poly_x[0])*(limit_poly_y[3]-limit_poly_y[0]);
+					d4 = (limit_poly_x[3]-limit_poly_x[0])*(limit_poly_y[2]-limit_poly_y[0])
+						-(limit_poly_x[2]-limit_poly_x[0])*(limit_poly_y[3]-limit_poly_y[0]);
+					if (d1*d2 < 0 && d3*d4 < 0)
+					{
+						double temp = limit_poly_x[2];
+						limit_poly_x[2] = limit_poly_x[3];
+						limit_poly_x[3] = temp;
+						temp = limit_poly_y[2];
+						limit_poly_y[2] = limit_poly_y[3];
+						limit_poly_y[3] = temp;
+					}
+				}//获取限定区域结束
+
+
+
+				RectFExt result_result = the_rect;
+
+				for (int j = 0; j < polygon_ite->np_[i].shared_by_-1; ++j)
+				{
+					image_path = path+polygon_ite->np_[i].index_name_n_[j]+strExt;
+					tempImage->Open(image_path.AllocSysString(), modeRead);
+					RectFExt temp_rect;
+
+					int nx = 0, ny = 0;
+					double cellsize = 0;
+					double xorigin = 0, yorigin = 0;
+
+					tempImage->GetCols(&nx);
+					tempImage->GetRows(&ny);
+					tempImage->GetGrdInfo(&xorigin, &yorigin, &cellsize);
+					tempImage->Close();
+
+					temp_rect.left = xorigin;
+					temp_rect.right = xorigin+nx*cellsize;
+					temp_rect.bottom = yorigin;
+					temp_rect.top = yorigin+ny*cellsize;
+
+					result_result = result_result.Intersected(temp_rect);
+				}
+
+				int blockArea = 128;
+
+				//获取公共区域的中心
+				double intersect_center_x = 0, intersect_center_y = 0;
+				intersect_center_x = (result_result.left+result_result.right)/2;
+				intersect_center_y = (result_result.top+result_result.bottom)/2;
+
+
+				//限制buffer范围
+				RectFExt buf_rect;
+				buf_rect.left = px[i]-blockArea;
+				buf_rect.right = px[i]+blockArea;
+				buf_rect.bottom = py[i]-blockArea;
+				buf_rect.top = py[i]+blockArea;
+				buf_rect = buf_rect.Intersected(result_result);
+				if (buf_rect.IsEmpty())
+				{
+					if (limit_poly_x != NULL)
+					{
+						delete []limit_poly_x;
+						delete []limit_poly_y;
+						limit_poly_x = NULL;
+						limit_poly_y = NULL;
+					}
+					continue;
+				}
+				float buffer_left = 0, buffer_right = 0,
+					buffer_bottom = 0, buffer_top = 0;
+				pImage->World2Image(buf_rect.left, buf_rect.bottom,
+					&buffer_left, &buffer_top);
+				pImage->World2Image(buf_rect.right, buf_rect.top,
+					&buffer_right, &buffer_bottom);
+
+				float intersect_center_buffer_x = 0, intersect_center_buffer_y = 0;
+				pImage->World2Image(intersect_center_x, intersect_center_y,
+					&intersect_center_buffer_x, &intersect_center_buffer_y);
+
+				int buffer_height = int(buffer_bottom-buffer_top+0.99999);
+				int buffer_width = int(buffer_right-buffer_left+0.99999);
+
+				unsigned short* buf = new unsigned short[buffer_height*buffer_width];
+				memset(buf, 0, buffer_height*buffer_width*sizeof(unsigned short));
+				pImage->ReadImg(buffer_left, buffer_top, buffer_right, buffer_bottom,
+					(unsigned char*)buf, buffer_width, buffer_height, 1, 0, 0,
+					buffer_width, buffer_height, -1, 0);
+				int start_col = int(fx-buffer_left+0.99999);
+				int start_row = int(fy-buffer_top+0.99999);
+				int end_col = int(intersect_center_buffer_x-buffer_left+0.99999);
+				int end_row = int(intersect_center_buffer_y-buffer_top+0.99999);
+
+				if (start_col >= buffer_width || start_row >= buffer_height)
+				{
+					delete []buf;
+					buf = NULL;
+					if (limit_poly_x != NULL)
+					{
+						delete []limit_poly_x;
+						delete []limit_poly_y;
+						limit_poly_x = NULL;
+						limit_poly_y = NULL;
+					}
+					continue;
+				}
+				bool isFind = false;
+				int ncount = 0;
+				const int count_limit = 7;
+
+				//往公共区域中心移点
+				int xoff = 0, yoff = 0;
+				xoff = end_col-start_col;
+				yoff = end_row-start_row;
+				double xite = 0, yite = 0;
+
+				if (abs(xoff) > abs(yoff)  && xoff != 0)
+				{
+					yite = yoff/(double)abs(xoff);
+					xite = xoff > 0 ? 1 : -1;
+				}
+				else if (abs(yoff) > abs(xoff) && yoff != 0)
+				{
+					xite = xoff/(double)abs(yoff);
+					yite = yoff > 0 ? 1 : -1;
+				}
+				else if (xoff = 0)
+				{
+					xite = 0;
+					yite = yoff >= 0 ? 1 : -1;
+				}
+				else if (yoff = 0)
+				{
+					yite = 0;
+					xite = xite >= 0 ? 1 : -1;
+				}
+				else if (abs(xoff) == abs(yoff))
+				{
+					xite = xite >= 0 ? 1 : -1;
+					yite = yoff >= 0 ? 1 : -1;
+				}
+
+				int limit_x = 0, limit_y = 0;
+				if (end_col < start_col)
+				{
+					limit_x = min(end_col, 0);
+				}
+				else if (end_col > start_col)
+				{
+					limit_x = max(end_col, buffer_width);
+				}
+				if (limit_x < 0)
+				{
+					limit_x = 0;
+				}
+				else if (limit_x > buffer_width)
+				{
+					limit_x = buffer_width;
+				}
+				if (end_row < start_row)
+				{
+					limit_y = min(end_row, 0);
+				}
+				else if (end_row > start_row)
+				{
+					limit_y = max(end_row, buffer_height);
+				}
+				if (limit_y < 0)
+				{
+					limit_y = 0;
+				}
+				else if (limit_y > buffer_height)
+				{
+					limit_y = buffer_height;
+				}
+
+				double findx = start_col, findy = start_row;
+				if (xite == 0)
+				{
+					while ((findy-limit_y)*(findy-yite-limit_y) > 0)
+					{
+						if (buf[int(findy)*buffer_width+int(findx)] > 10)
+						{
+							ncount = 0;
+						}
+						else
+						{
+							++ncount;
+							if (ncount >= count_limit)
+							{
+								if (-1 == PtInRegionZXEx(
+									geox+(findx-start_col)*resolution,
+									geoy+(findy-start_row)*resolution,
+									limit_poly_x, limit_poly_y, shared_by, 1e-5))
+								{
+									break;
+								}
+								isFind = true;
+								auto poly = polygons.begin();
+								while (poly != polygons.end())
+								{
+									poly->ResetPoint("", geox, geoy,
+										geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+									++poly;
+								}
+								break;
+							}
+						}
+						findy += yite;
+						if (findy < 0 || int(findy) >= buffer_width)
+						{
+							break;
+						}
+					}
+				}
+				else if (yite == 0)
+				{
+					while ((findx-limit_x)*(findx-xite-limit_x) > 0)
+					{
+						if (buf[int(findy)*buffer_width+int(findx)] > 10)
+						{
+							ncount = 0;
+						}
+						else
+						{
+							++ncount;
+							if (ncount >= count_limit)
+							{
+								if (-1 == PtInRegionZXEx(
+									geox+(findx-start_col)*resolution,
+									geoy+(findy-start_row)*resolution,
+									limit_poly_x, limit_poly_y, shared_by, 1e-5))
+								{
+									break;
+								}
+								isFind = true;
+								auto poly = polygons.begin();
+								while (poly != polygons.end())
+								{
+									poly->ResetPoint("", geox, geoy,
+										geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+									++poly;
+								}
+								break;
+							}
+						}
+						findx += xite;
+						if (findx < 0 || int(findx) >= buffer_width)
+						{
+							break;
+						}
+					}
+				}
+				else
+				{
+					while ((findx-limit_x)*(findx-xite-limit_x) > 0 && (findy-limit_y)*(findy-yite-limit_y) > 0)
+					{
+						if (buf[int(findy)*buffer_width+int(findx)] != 0)
+						{
+							ncount = 0;
+						}
+						else
+						{
+							++ncount;
+							if (ncount >= count_limit)
+							{
+								if (-1 == PtInRegionZXEx(
+									geox+(findx-start_col)*resolution,
+									geoy+(findy-start_row)*resolution,
+									limit_poly_x, limit_poly_y, shared_by, 1e-5))
+								{
+									break;
+								}
+								isFind = true;
+								auto poly = polygons.begin();
+								while (poly != polygons.end())
+								{
+									poly->ResetPoint("", geox, geoy,
+										geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+									++poly;
+								}
+								break;
+							}
+						}
+						findy += yite;
+						findx += xite;
+						if (findx < 0 || int(findx) >= buffer_width)
+						{
+							break;
+						}
+						if (findy < 0 || int(findy) >= buffer_width)
+						{
+							break;
+						}
+					}
+				}
+
+				if (!isFind)
+				{
+					yite = -yite;
+					xite = xite;
+					double findx = start_col, findy = start_row;
+					if (xite == 0)
+					{
+						while ((findy-limit_y)*(findy-yite-limit_y) > 0)
+						{
+							if (buf[int(findy)*buffer_width+int(findx)] > 10)
+							{
+								ncount = 0;
+							}
+							else
+							{
+								++ncount;
+								if (ncount >= count_limit)
+								{
+									if (-1 == PtInRegionZXEx(
+										geox+(findx-start_col)*resolution,
+										geoy+(findy-start_row)*resolution,
+										limit_poly_x, limit_poly_y, shared_by, 1e-5))
+									{
+										break;
+									}
+									isFind = true;
+									auto poly = polygons.begin();
+									while (poly != polygons.end())
+									{
+										poly->ResetPoint("", geox, geoy,
+											geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+										++poly;
+									}
+									break;
+								}
+							}
+							findy += yite;
+							if (findy < 0 || int(findy) >= buffer_width)
+							{
+								break;
+							}
+						}
+					}
+					else if (yite == 0)
+					{
+						while ((findx-limit_x)*(findx-xite-limit_x) > 0)
+						{
+							if (buf[int(findy)*buffer_width+int(findx)] > 10)
+							{
+								ncount = 0;
+							}
+							else
+							{
+								++ncount;
+								if (ncount >= count_limit)
+								{
+									if (-1 == PtInRegionZXEx(
+										geox+(findx-start_col)*resolution,
+										geoy+(findy-start_row)*resolution,
+										limit_poly_x, limit_poly_y, shared_by, 1e-5))
+									{
+										break;
+									}
+									isFind = true;
+									auto poly = polygons.begin();
+									while (poly != polygons.end())
+									{
+										poly->ResetPoint("", geox, geoy,
+											geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+										++poly;
+									}
+									break;
+								}
+							}
+							findx += xite;
+							if (findx < 0 || int(findx) >= buffer_width)
+							{
+								break;
+							}
+						}
+					}
+					else
+					{
+						while ((findx-limit_x)*(findx-xite-limit_x) > 0 && (findy-limit_y)*(findy-yite-limit_y) > 0)
+						{
+							if (buf[int(findy)*buffer_width+int(findx)] != 0)
+							{
+								ncount = 0;
+							}
+							else
+							{
+								++ncount;
+								if (ncount >= count_limit)
+								{
+									if (-1 == PtInRegionZXEx(
+										geox+(findx-start_col)*resolution,
+										geoy+(findy-start_row)*resolution,
+										limit_poly_x, limit_poly_y, shared_by, 1e-5))
+									{
+										break;
+									}
+									isFind = true;
+									auto poly = polygons.begin();
+									while (poly != polygons.end())
+									{
+										poly->ResetPoint("", geox, geoy,
+											geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+										++poly;
+									}
+									break;
+								}
+							}
+							findy += yite;
+							findx += xite;
+							if (findx < 0 || int(findx) >= buffer_width)
+							{
+								break;
+							}
+							if (findy < 0 || int(findy) >= buffer_width)
+							{
+								break;
+							}
+						}
+					}
+				}
+
+				if (!isFind)
+				{
+					yite = yite;
+					xite = -xite;
+
+					double findx = start_col, findy = start_row;
+					if (xite == 0)
+					{
+						while ((findy-limit_y)*(findy-yite-limit_y) > 0)
+						{
+							if (buf[int(findy)*buffer_width+int(findx)] > 10)
+							{
+								ncount = 0;
+							}
+							else
+							{
+								++ncount;
+								if (ncount >= count_limit)
+								{
+									if (-1 == PtInRegionZXEx(
+										geox+(findx-start_col)*resolution,
+										geoy+(findy-start_row)*resolution,
+										limit_poly_x, limit_poly_y, shared_by, 1e-5))
+									{
+										break;
+									}
+									isFind = true;
+									auto poly = polygons.begin();
+									while (poly != polygons.end())
+									{
+										poly->ResetPoint("", geox, geoy,
+											geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+										++poly;
+									}
+									break;
+								}
+							}
+							findy += yite;
+							if (findy < 0 || int(findy) >= buffer_width)
+							{
+								break;
+							}
+						}
+					}
+					else if (yite == 0)
+					{
+						while ((findx-limit_x)*(findx-xite-limit_x) > 0)
+						{
+							if (buf[int(findy)*buffer_width+int(findx)] > 10)
+							{
+								ncount = 0;
+							}
+							else
+							{
+								++ncount;
+								if (ncount >= count_limit)
+								{
+									if (-1 == PtInRegionZXEx(
+										geox+(findx-start_col)*resolution,
+										geoy+(findy-start_row)*resolution,
+										limit_poly_x, limit_poly_y, shared_by, 1e-5))
+									{
+										break;
+									}
+									isFind = true;
+									auto poly = polygons.begin();
+									while (poly != polygons.end())
+									{
+										poly->ResetPoint("", geox, geoy,
+											geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+										++poly;
+									}
+									break;
+								}
+							}
+							findx += xite;
+							if (findx < 0 || int(findx) >= buffer_width)
+							{
+								break;
+							}
+						}
+					}
+					else
+					{
+						while ((findx-limit_x)*(findx-xite-limit_x) > 0 && (findy-limit_y)*(findy-yite-limit_y) > 0)
+						{
+							if (buf[int(findy)*buffer_width+int(findx)] != 0)
+							{
+								ncount = 0;
+							}
+							else
+							{
+								++ncount;
+								if (ncount >= count_limit)
+								{
+									if (-1 == PtInRegionZXEx(
+										geox+(findx-start_col)*resolution,
+										geoy+(findy-start_row)*resolution,
+										limit_poly_x, limit_poly_y, shared_by, 1e-5))
+									{
+										break;
+									}
+									isFind = true;
+									auto poly = polygons.begin();
+									while (poly != polygons.end())
+									{
+										poly->ResetPoint("", geox, geoy,
+											geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+										++poly;
+									}
+									break;
+								}
+							}
+							findy += yite;
+							findx += xite;
+							if (findx < 0 || int(findx) >= buffer_width)
+							{
+								break;
+							}
+							if (findy < 0 || int(findy) >= buffer_width)
+							{
+								break;
+							}
+						}
+					}
+				}
+
+				if (!isFind)
+				{
+					yite = -yite;
+					xite = xite;
+
+					double findx = start_col, findy = start_row;
+					if (xite == 0)
+					{
+						while ((findy-limit_y)*(findy-yite-limit_y) > 0)
+						{
+							if (buf[int(findy)*buffer_width+int(findx)] > 10)
+							{
+								ncount = 0;
+							}
+							else
+							{
+								++ncount;
+								if (ncount >= count_limit)
+								{
+									if (-1 == PtInRegionZXEx(
+										geox+(findx-start_col)*resolution,
+										geoy+(findy-start_row)*resolution,
+										limit_poly_x, limit_poly_y, shared_by, 1e-5))
+									{
+										break;
+									}
+									isFind = true;
+									auto poly = polygons.begin();
+									while (poly != polygons.end())
+									{
+										poly->ResetPoint("", geox, geoy,
+											geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+										++poly;
+									}
+									break;
+								}
+							}
+							findy += yite;
+							if (findy < 0 || int(findy) >= buffer_width)
+							{
+								break;
+							}
+						}
+					}
+					else if (yite == 0)
+					{
+						while ((findx-limit_x)*(findx-xite-limit_x) > 0)
+						{
+							if (buf[int(findy)*buffer_width+int(findx)] > 10)
+							{
+								ncount = 0;
+							}
+							else
+							{
+								++ncount;
+								if (ncount >= count_limit)
+								{
+									if (-1 == PtInRegionZXEx(
+										geox+(findx-start_col)*resolution,
+										geoy+(findy-start_row)*resolution,
+										limit_poly_x, limit_poly_y, shared_by, 1e-5))
+									{
+										break;
+									}
+									isFind = true;
+									auto poly = polygons.begin();
+									while (poly != polygons.end())
+									{
+										poly->ResetPoint("", geox, geoy,
+											geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+										++poly;
+									}
+									break;
+								}
+							}
+							findx += xite;
+							if (findx < 0 || int(findx) >= buffer_width)
+							{
+								break;
+							}
+						}
+					}
+					else
+					{
+						while ((findx-limit_x)*(findx-xite-limit_x) > 0 && (findy-limit_y)*(findy-yite-limit_y) > 0)
+						{
+							if (buf[int(findy)*buffer_width+int(findx)] != 0)
+							{
+								ncount = 0;
+							}
+							else
+							{
+								++ncount;
+								if (ncount >= count_limit)
+								{
+									if (-1 == PtInRegionZXEx(
+										geox+(findx-start_col)*resolution,
+										geoy+(findy-start_row)*resolution,
+										limit_poly_x, limit_poly_y, shared_by, 1e-5))
+									{
+										break;
+									}
+									isFind = true;
+									auto poly = polygons.begin();
+									while (poly != polygons.end())
+									{
+										poly->ResetPoint("", geox, geoy,
+											geox+(findx-start_col)*resolution, geoy+(findy-start_row)*resolution);
+										++poly;
+									}
+									break;
+								}
+							}
+							findy += yite;
+							findx += xite;
+							if (findx < 0 || int(findx) >= buffer_width)
+							{
+								break;
+							}
+							if (findy < 0 || int(findy) >= buffer_width)
+							{
+								break;
+							}
+						}
+					}
+				}
+
+				delete []buf;
+				buf = NULL;
+				if (limit_poly_x != NULL)
+				{
+					delete []limit_poly_x;
+					delete []limit_poly_y;
+					limit_poly_x = NULL;
+					limit_poly_y = NULL;
+				}
+			}
+		}
+		++polygon_ite;
+	}//移点结束
+
+	//删点
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
@@ -283,7 +1405,6 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 			++index1;
 			++ite;
 		}
-
 		++polygon_ite;
 	}
 
@@ -332,6 +1453,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 			}
 			reserve_index.clear();
 			polygon_ite->np_[max_index].available_ = true;
+			polygon_ite->np_[max_index].is_edge_ = true;
 		}
 		else if (area*area_del < 0)
 		{
@@ -425,7 +1547,8 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		++polygon_ite;
 	}
 
-	IImageX* tempImage = NULL;
+
+	//解决删点后依然自交
 	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
@@ -541,72 +1664,12 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	timer = clock()-starter;
 	outtime<<"解决删点错误耗时："<<timer<<"ms\n";
 	
-	
-// 	if (!EffectPoly(vecImagePath))
-// 	{
-// 		return false;
-// 	}
-	
-	//读取有效区域
-	std::vector<PolygonExt2> EffPolygons;
-	path_ite = vecImagePath.begin();
-	while (path_ite != vecImagePath.end())
-	{
-		CString index_name = *path_ite;
-		index_name = index_name.Right(index_name.GetLength()-index_name.ReverseFind('\\')-1);
-		index_name = index_name.Left(index_name.ReverseFind('.'));
-
-		CString ep_name = *path_ite+_T(".ep");
-		std::fstream infile;
-		infile.open(ep_name.GetBuffer(0), std::ios::in);
-		int point_count = 0;
-		infile>>point_count;
-		double* px = new double[point_count];
-		double* py = new double[point_count];
-
-		for (int i = 0; i < point_count; ++i)
-		{
-			infile>>px[i]>>py[i];
-		}
-		EffPolygons.push_back(PolygonExt2(point_count, px, py, index_name));
-
-		infile.close();
-		++path_ite;
-	}
-	
-	
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
 		polygon_ite->Output(strRrlxPath);
 		++polygon_ite;
 	}
-	
-	//dxf转dem
-	IImageX* pImage = NULL;
-	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&pImage);
-	if (S_FALSE == pImage->Open(vecImagePath.front().AllocSysString(), modeRead))
-	{
-		pImage->Release();
-		return false;
-	}
-	double tmp_cellsize = 0, tmp = 0;
-	pImage->GetGrdInfo(&tmp, &tmp, &tmp_cellsize);
-	pImage->Close();
-	if (strDxfPath.Right(3).CompareNoCase(_T("dxf")) == 0 && !Dxf2Dsm(strDxfPath, tmp_cellsize))
-	{
-		return false;
-	}
-	CString strDsmPath = strDxfPath.Left(strDxfPath.ReverseFind('.'));
-	strDsmPath += _T(".dem");
-	
-	//dem转tif
-	if (!Dsm2Tif(strDsmPath))
-	{
-		return false;
-	}
-	CString strTifPath = strDsmPath.Left(strDsmPath.ReverseFind('.'));
-	strTifPath += _T(".tif");
 	
 	//获取dxf中的多边形
 	CDrawing m_dxffile;
@@ -676,18 +1739,15 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		return false;
 	}
 
-	double resolution = 0;
-	double lfXOrigin = 0, lfYOrigin = 0;
+	resolution = 0;
+	lfXOrigin = 0, lfYOrigin = 0;
 	pImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &resolution);
-	int nWidth = 0, nHeight = 0;
+	nWidth = 0, nHeight = 0;
 	pImage->GetCols(&nWidth);
 	pImage->GetRows(&nHeight);
-	double lfXEnd = 0, lfYEnd = 0;
+	lfXEnd = 0, lfYEnd = 0;
 	lfXEnd = lfXOrigin+nWidth*resolution;
 	lfYEnd = lfYOrigin+nHeight*resolution;
-
-	double pEdgex[4];
-	double pEdgey[4];
 
 	pEdgex[0] = lfXOrigin;
 	pEdgex[1] = lfXOrigin;
@@ -1184,6 +2244,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	while (true)
 	{
 		int cross_count = 0;
+		bool modified = false;
 		polygon_ite = polygons.begin();
 		while (polygon_ite != polygons.end())
 		{
@@ -1220,21 +2281,25 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 								polygon_ite->np_[index_front].is_edge_ == false)
 							{
 								polygon_ite->np_[index_front].available_ = false;
+								modified = true;
 							}
 							if (polygon_ite->np_[(index_front+1)%point_count].shared_by_ == 2 &&
 								polygon_ite->np_[(index_front+1)%point_count].is_edge_ == false)
 							{
 								polygon_ite->np_[(index_front+1)%point_count].available_ = false;
+								modified = true;
 							}
 							if (polygon_ite->np_[index_back].shared_by_ == 2 &&
 								polygon_ite->np_[index_back].is_edge_ == false)
 							{
 								polygon_ite->np_[index_back].available_ = false;
+								modified = true;
 							}
 							if (polygon_ite->np_[(index_back-1+point_count)%point_count].shared_by_ == 2 &&
 								polygon_ite->np_[(index_back-1+point_count)%point_count].is_edge_ == false)
 							{
 								polygon_ite->np_[(index_back-1+point_count)%point_count].available_ = false;
+								modified = true;
 							}
 						}
 					}
@@ -1246,6 +2311,11 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 			}
 			
 			++polygon_ite;
+		}
+
+		if (!modified)
+		{
+			break;
 		}
 
 		polygon_ite = polygons.begin();
@@ -1303,6 +2373,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		++polygon_ite;
 	}
 	
+	shortpath->Release();
 	pImage->Close();
 	pImage->Release();
 	tempImage->Release();

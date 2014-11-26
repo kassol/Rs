@@ -195,10 +195,10 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	timer = clock()-starter;
 	outtime<<"边界点耗时："<<timer<<"ms\n";
 
-	// 	if (!EffectPoly(vecImagePath))
-	// 	{
-	// 		return false;
-	// 	}
+	if (!EffectPoly(vecImagePath))
+	{
+		return false;
+	}
 
 	//读取有效区域
 	std::vector<PolygonExt2> EffPolygons;
@@ -1502,41 +1502,40 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 			if (modified)
 			{
 				polygon_ite = polygons.begin();
+				while (polygon_ite != polygons.end())
+				{
+					auto ite = polygon_ite->np_.begin();
+					int index1 = 0;
+					while (ite != polygon_ite->np_.end())
+					{
+						if (ite->shared_by_ == 2)
+						{
+							auto temp_ite = std::find(polygons.begin(), polygons.end(),
+								PolygonExt2(0, NULL, NULL, ite->index_name_n_[0]));
+							for (int index2 = 0; index2 < temp_ite->point_count_; ++index2)
+							{
+								if (fabs(polygon_ite->px_[index1]-temp_ite->px_[index2]) < 1e-5 &&
+									fabs(polygon_ite->py_[index1]-temp_ite->py_[index2]) < 1e-5)
+								{
+									if (temp_ite->np_[index2].available_)
+									{
+										ite->available_ = true;
+										ite->is_edge_ = true;
+									}
+									break;
+								}
+							}
+						}
+						++index1;
+						++ite;
+					}
+
+					++polygon_ite;
+				}
+				polygon_ite = polygons.begin();
 				continue;
 			}
 		}
-		++polygon_ite;
-	}
-
-	polygon_ite = polygons.begin();
-	while (polygon_ite != polygons.end())
-	{
-		auto ite = polygon_ite->np_.begin();
-		int index1 = 0;
-		while (ite != polygon_ite->np_.end())
-		{
-			if (ite->shared_by_ == 2)
-			{
-				auto temp_ite = std::find(polygons.begin(), polygons.end(),
-					PolygonExt2(0, NULL, NULL, ite->index_name_n_[0]));
-				for (int index2 = 0; index2 < temp_ite->point_count_; ++index2)
-				{
-					if (fabs(polygon_ite->px_[index1]-temp_ite->px_[index2]) < 1e-5 &&
-						fabs(polygon_ite->py_[index1]-temp_ite->py_[index2]) < 1e-5)
-					{
-						if (temp_ite->np_[index2].available_)
-						{
-							ite->available_ = true;
-							ite->is_edge_ = true;
-						}
-						break;
-					}
-				}
-			}
-			++index1;
-			++ite;
-		}
-
 		++polygon_ite;
 	}
 	
@@ -1547,6 +1546,12 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		++polygon_ite;
 	}
 
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		polygon_ite->Output(strRrlxPath);
+		++polygon_ite;
+	}
 
 	//解决删点后依然自交
 	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
@@ -2239,7 +2244,6 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	timer = clock()-starter;
 	outtime<<"第二次删点耗时："<<timer<<"ms\n";
 
-
 	//删除自交的点
 	while (true)
 	{
@@ -2365,6 +2369,53 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	outtime<<"解决自交耗时："<<timer<<"ms\n";
 
 	outtime.close();
+
+	//检查是否还有造成相交的点
+	while (true)
+	{
+		int cross_count = 0;
+		polygon_ite = polygons.begin();
+		while (polygon_ite != polygons.end())
+		{
+			double* px = polygon_ite->px_;
+			double* py = polygon_ite->py_;
+			int point_count = polygon_ite->point_count_;
+			for (int count = 0; count < point_count; ++count)
+			{
+				if (polygon_ite->np_[count].shared_by_ == 2 && polygon_ite->np_[count].is_edge_ == false)
+				{
+					auto polygon_ite2 = polygons.begin();
+					bool isin = false;
+					while (polygon_ite2 != polygons.end())
+					{
+						CString strID = polygon_ite2->index_name_;
+						if (strID.CompareNoCase(polygon_ite->np_[count].index_name_n_[0]) != 0 &&
+							strID.CompareNoCase(polygon_ite->index_name_) != 0)
+						{
+							isin |= (-1 != PtInRegionZXEx(px[count], py[count], polygon_ite2->px_, polygon_ite2->py_, polygon_ite2->point_count_, 0.00001));
+						}
+						++polygon_ite2;
+					}
+					if (isin)
+					{
+						++cross_count;
+						polygon_ite->np_[count].available_ = false;
+					}
+				}
+			}
+			++polygon_ite;
+		}
+		if (cross_count == 0)
+		{
+			break;
+		}
+		polygon_ite = polygons.begin();
+		while (polygon_ite != polygons.end())
+		{
+			polygon_ite->DeletePoint();
+			++polygon_ite;
+		}
+	}
 	
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
@@ -2992,7 +3043,7 @@ bool LineCrossLine(double px1, double py1, double px2, double py2, double px3, d
 	d2 = (px2-px1)*(py4-py1)-(px4-px1)*(py2-py1);
 	d3 = (px4-px3)*(py1-py3)-(px1-px3)*(py4-py3);
 	d4 = (px4-px3)*(py2-py3)-(px2-px3)*(py4-py3);
-	if (d1*d2 < 0 && d3*d4 < 0)
+	if (d1*d2 <= 0 && d3*d4 <= 0)
 	{
 		return true;
 	}

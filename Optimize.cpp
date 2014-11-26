@@ -195,10 +195,10 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	timer = clock()-starter;
 	outtime<<"边界点耗时："<<timer<<"ms\n";
 
-	if (!EffectPoly(vecImagePath))
-	{
-		return false;
-	}
+// 	if (!EffectPoly(vecImagePath))
+// 	{
+// 		return false;
+// 	}
 
 	//读取有效区域
 	std::vector<PolygonExt2> EffPolygons;
@@ -1411,7 +1411,6 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	timer = clock()-starter;
 	outtime<<"dp增点耗时："<<timer<<"ms\n";
 
-
 	//解决删点面积反向
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
@@ -1462,15 +1461,84 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 				if (polygon_ite->np_[i].available_ == false)
 				{
 					polygon_ite->np_[i].available_ = true;
-					polygon_ite->np_[i].is_edge_ = true;
-					area_del = polygon_ite->GetDelArea();
-					if (area*area_del > 0)
+				}
+			}
+			vector<int> available_index;
+			for (int i = 0; i < point_count; ++i)
+			{
+				if (polygon_ite->np_[i].available_)
+				{
+					available_index.push_back(i);
+				}
+			}
+
+			vector<int> result_index;
+			result_index.push_back(available_index.front());
+			for (int i = 1; i < available_index.size(); ++i)
+			{
+				if (polygon_ite->np_[available_index[i]].shared_by_ > 2 || polygon_ite->np_[available_index[i]].is_edge_)
+				{
+					result_index.push_back(available_index[i]);
+				}
+				else
+				{
+					double dis = GetDistance(px[available_index[i]], py[available_index[i]], px[result_index.back()], py[result_index.back()],
+						px[available_index[(i+1)%available_index.size()]], py[available_index[(i+1)%available_index.size()]]);
+					if (dis > 128*tmp_cellsize)
 					{
+						result_index.push_back(available_index[i]);
+					}
+				}
+			}
+			for (int i = 0; i < available_index.size(); ++i)
+			{
+				auto ite = std::find(result_index.begin(), result_index.end(), available_index[i]);
+				if (ite != result_index.end())
+				{
+					polygon_ite->np_[available_index[i]].available_ = true;
+					polygon_ite->np_[available_index[i]].is_edge_ = true;
+				}
+				else
+				{
+					polygon_ite->np_[available_index[i]].available_ = false;
+					polygon_ite->np_[available_index[i]].is_edge_ = false;
+				}
+			}
+			available_index.clear();
+			result_index.clear();
+		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		auto ite = polygon_ite->np_.begin();
+		int index1 = 0;
+		while (ite != polygon_ite->np_.end())
+		{
+			if (ite->shared_by_ == 2)
+			{
+				auto temp_ite = std::find(polygons.begin(), polygons.end(),
+					PolygonExt2(0, NULL, NULL, ite->index_name_n_[0]));
+				for (int index2 = 0; index2 < temp_ite->point_count_; ++index2)
+				{
+					if (fabs(polygon_ite->px_[index1]-temp_ite->px_[index2]) < 1e-5 &&
+						fabs(polygon_ite->py_[index1]-temp_ite->py_[index2]) < 1e-5)
+					{
+						if (temp_ite->np_[index2].available_)
+						{
+							ite->available_ = true;
+							ite->is_edge_ = true;
+						}
 						break;
 					}
 				}
 			}
+			++index1;
+			++ite;
 		}
+
 		++polygon_ite;
 	}
 
@@ -1478,6 +1546,10 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
 	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int point_count = polygon_ite->point_count_;
+
 		bool modified = false;
 		if (polygon_ite->CrossSelf())
 		{
@@ -1486,52 +1558,91 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 				if (polygon_ite->np_[i].available_ == false)
 				{
 					polygon_ite->np_[i].available_ = true;
-					polygon_ite->np_[i].is_edge_ = true;
 					if (polygon_ite->CrossSelf() == false)
 					{
 						modified = true;
 						break;
 					}
-					else
+				}
+			}
+
+			vector<int> available_index;
+			for (int i = 0; i < point_count; ++i)
+			{
+				if (polygon_ite->np_[i].available_)
+				{
+					available_index.push_back(i);
+				}
+			}
+
+			vector<int> result_index;
+			result_index.push_back(available_index.front());
+			for (int i = 1; i < available_index.size(); ++i)
+			{
+				if (polygon_ite->np_[available_index[i]].shared_by_ > 2 || polygon_ite->np_[available_index[i]].is_edge_)
+				{
+					result_index.push_back(available_index[i]);
+				}
+				else
+				{
+					double dis = GetDistance(px[available_index[i]], py[available_index[i]], px[result_index.back()], py[result_index.back()],
+						px[available_index[(i+1)%available_index.size()]], py[available_index[(i+1)%available_index.size()]]);
+					if (dis > 128*tmp_cellsize)
 					{
-						polygon_ite->np_[i].available_ = false;
-						polygon_ite->np_[i].is_edge_ = false;
+						result_index.push_back(available_index[i]);
 					}
 				}
 			}
-			if (modified)
+			for (int i = 0; i < available_index.size(); ++i)
 			{
-				polygon_ite = polygons.begin();
-				while (polygon_ite != polygons.end())
+				auto ite = std::find(result_index.begin(), result_index.end(), available_index[i]);
+				if (ite != result_index.end())
 				{
-					auto ite = polygon_ite->np_.begin();
-					int index1 = 0;
-					while (ite != polygon_ite->np_.end())
+					polygon_ite->np_[available_index[i]].available_ = true;
+					polygon_ite->np_[available_index[i]].is_edge_ = true;
+				}
+				else
+				{
+					polygon_ite->np_[available_index[i]].available_ = false;
+					polygon_ite->np_[available_index[i]].is_edge_ = false;
+				}
+			}
+			available_index.clear();
+			result_index.clear();
+
+			auto polygon_ite2 = polygons.begin();
+			while (polygon_ite2 != polygons.end())
+			{
+				auto ite = polygon_ite2->np_.begin();
+				int index1 = 0;
+				while (ite != polygon_ite2->np_.end())
+				{
+					if (ite->shared_by_ == 2)
 					{
-						if (ite->shared_by_ == 2)
+						auto temp_ite = std::find(polygons.begin(), polygons.end(),
+							PolygonExt2(0, NULL, NULL, ite->index_name_n_[0]));
+						for (int index2 = 0; index2 < temp_ite->point_count_; ++index2)
 						{
-							auto temp_ite = std::find(polygons.begin(), polygons.end(),
-								PolygonExt2(0, NULL, NULL, ite->index_name_n_[0]));
-							for (int index2 = 0; index2 < temp_ite->point_count_; ++index2)
+							if (fabs(polygon_ite2->px_[index1]-temp_ite->px_[index2]) < 1e-5 &&
+								fabs(polygon_ite2->py_[index1]-temp_ite->py_[index2]) < 1e-5)
 							{
-								if (fabs(polygon_ite->px_[index1]-temp_ite->px_[index2]) < 1e-5 &&
-									fabs(polygon_ite->py_[index1]-temp_ite->py_[index2]) < 1e-5)
+								if (temp_ite->np_[index2].available_)
 								{
-									if (temp_ite->np_[index2].available_)
-									{
-										ite->available_ = true;
-										ite->is_edge_ = true;
-									}
-									break;
+									ite->available_ = true;
+									ite->is_edge_ = true;
 								}
+								break;
 							}
 						}
-						++index1;
-						++ite;
 					}
-
-					++polygon_ite;
+					++index1;
+					++ite;
 				}
+
+				++polygon_ite2;
+			}
+			if (modified)
+			{
 				polygon_ite = polygons.begin();
 				continue;
 			}
@@ -3043,7 +3154,7 @@ bool LineCrossLine(double px1, double py1, double px2, double py2, double px3, d
 	d2 = (px2-px1)*(py4-py1)-(px4-px1)*(py2-py1);
 	d3 = (px4-px3)*(py1-py3)-(px1-px3)*(py4-py3);
 	d4 = (px4-px3)*(py2-py3)-(px2-px3)*(py4-py3);
-	if (d1*d2 <= 0 && d3*d4 <= 0)
+	if (d1*d2 < 0 && d3*d4 < 0)
 	{
 		return true;
 	}

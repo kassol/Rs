@@ -3173,7 +3173,7 @@ void CRsDoc::OnEffectpoly()
 		++ite;
 	}
 	strAllDomPath = strAllDomPath.Left(strAllDomPath.GetLength()-1);
-	//OutputEffectivePoly(strAllDomPath, 0);
+//	OutputEffectivePoly(strAllDomPath, 0);
 
 	ParseEffective();
 	UpdateAllViews(NULL);

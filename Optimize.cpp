@@ -195,10 +195,10 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	timer = clock()-starter;
 	outtime<<"边界点耗时："<<timer<<"ms\n";
 
-// 	if (!EffectPoly(vecImagePath))
-// 	{
-// 		return false;
-// 	}
+	if (!EffectPoly(vecImagePath))
+	{
+		return false;
+	}
 
 	//读取有效区域
 	std::vector<PolygonExt2> EffPolygons;
@@ -2551,7 +2551,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 
 bool EffectPoly(std::vector<CString>& vecImagePath)
 {
-	const int BG_COLOR = 255;
+	const int BG_COLOR = 0;
 	std::vector<CString>::const_iterator image_path = vecImagePath.begin();
 	
 	IImageX* pImage = NULL;
@@ -2647,6 +2647,14 @@ bool EffectPoly(std::vector<CString>& vecImagePath)
 					break;
 				}
 			}
+			if (y < nYSize/5 || nYSize-y < nYSize/5)
+			{
+				interval = nYSize/5>50 ? nYSize/100 : nYSize/20+1;
+			}
+			else if (y < int(nYSize*4.0/5))
+			{
+				interval = int(nYSize*3.0/5) > 500 ? int(nYSize*3.0/5)/10 : int(nYSize*3.0/5)/4+1;
+			}
 		}
 		delete []buffer;
 		buffer = NULL;
@@ -2724,16 +2732,28 @@ bool EffectPoly(std::vector<CString>& vecImagePath)
 		std::fstream outfile;
 		outfile.open(point_path.GetBuffer(0), std::ios::out);
 		outfile<<std::fixed;
-		outfile<<point_left.size()+point_right.size()<<"\n";
-		for (unsigned int i = 0; i < point_left.size(); ++i)
+		if (point_left.size()+point_right.size() < 3)
 		{
-			outfile<<point_left[i].x*lfCellSize+lfXOrigin<<"   "<<point_left[i].y*lfCellSize+lfYOrigin<<"\n";
+			outfile<<"4"<<"\n";
+			outfile<<lfXOrigin<<"   "<<lfYOrigin<<"\n";
+			outfile<<lfXOrigin+nXSize*lfCellSize<<"   "<<lfYOrigin<<"\n";
+			outfile<<lfXOrigin+nXSize*lfCellSize<<"   "<<lfYOrigin+nYSize*lfCellSize<<"\n";
+			outfile<<lfXOrigin<<"   "<<lfYOrigin+nYSize*lfCellSize<<"\n";
 		}
+		else
+		{
+			outfile<<point_left.size()+point_right.size()<<"\n";
+			for (unsigned int i = 0; i < point_left.size(); ++i)
+			{
+				outfile<<point_left[i].x*lfCellSize+lfXOrigin<<"   "<<point_left[i].y*lfCellSize+lfYOrigin<<"\n";
+			}
 
-		for (int i = point_right.size()-1; i >= 0; --i)
-		{
-			outfile<<point_right[i].x*lfCellSize+lfXOrigin<<"   "<<point_right[i].y*lfCellSize+lfYOrigin<<"\n";
+			for (int i = point_right.size()-1; i >= 0; --i)
+			{
+				outfile<<point_right[i].x*lfCellSize+lfXOrigin<<"   "<<point_right[i].y*lfCellSize+lfYOrigin<<"\n";
+			}
 		}
+		
 		outfile.close();
 
 		++image_path;

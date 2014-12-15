@@ -14,6 +14,7 @@ bool LineCrossLine(double px1, double py1, double px2, double py2, double px3, d
 bool GetCrossPoint(double px1, double py1, double px2, double py2, double* px, double* py, int point_num, double& result_x, double& result_y);
 int  PtInRegionZXEx(double x, double y, double *pX, double *pY, int nSum, double lfSnap);
 double CalDistance(double x1, double y1, double x2, double y2);
+bool MovePoints(CString strAllDomPath, CString strRrlxPath);
 
 struct PointEx{
 	PointEx(){x = 0; y = 0;}
@@ -78,6 +79,7 @@ struct NodeProperty
 		: shared_by_(shared_by)
 		, available_(true)
 		, is_edge_(false)
+		, should_move_(false)
 	{
 
 	}
@@ -85,6 +87,7 @@ struct NodeProperty
 	CString index_name_n_[3];
 	bool available_;
 	bool is_edge_;
+	bool should_move_;
 };
 
 struct PolygonExt2
@@ -143,6 +146,7 @@ struct PolygonExt2
 			++ite;
 		}
 	}
+
 	void Output(CString path)
 	{
 		path += index_name_;
@@ -160,6 +164,7 @@ struct PolygonExt2
 		}
 		outfile.close();
 	}
+
 	void ResetPoint(CString index, double px, double py, double newx, double newy)
 	{
 		if (index == index_name_ || index == _T(""))
@@ -170,10 +175,16 @@ struct PolygonExt2
 				{
 					px_[i] = newx;
 					py_[i] = newy;
+					if (np_[i].should_move_ == true)
+					{
+						np_[i].should_move_ = false;
+					}
+					break;
 				}
 			}
 		}
 	}
+
 	void RotatePoints(double startx, double starty, double startx_next, double starty_next, double endx, double endy, double endx_next, double endy_next)
 	{
 		int start_index = 0, end_index = 0;
@@ -254,6 +265,7 @@ struct PolygonExt2
 		}
 		temp_count;
 	}
+
 	void InsertPoints(double startx, double starty, double endx, double endy, double* pxin, double* pyin, long point_count, CString strIndex, CString strIndex2)
 	{
 		long new_point_count_ = point_count+point_count_;
@@ -331,6 +343,7 @@ struct PolygonExt2
 		delete []new_py_;
 		new_py_ = NULL;
 	}
+
 	int GetArea()
 	{
 		double area = 0;
@@ -353,6 +366,7 @@ struct PolygonExt2
 			return 1;
 		}
 	}
+
 	int GetDelArea()
 	{
 		vector<int> vecIndex;
@@ -387,6 +401,7 @@ struct PolygonExt2
 			return 1;
 		}
 	}
+
 	bool CrossSelf()
 	{
 		vector<int> vectemp;
@@ -413,6 +428,7 @@ struct PolygonExt2
 		}
 		return false;
 	}
+
 	void Free()
 	{
 		delete []px_;

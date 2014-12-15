@@ -19,6 +19,7 @@ double CalDistance(double x1, double y1, double x2, double y2)
 
 bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 {
+	return MovePoints(strAllDomPath, strRrlxPath);
 	clock_t starter = clock();
 	fstream outtime;
 	outtime.open("C:\\time.txt", ios::out);
@@ -195,10 +196,10 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	timer = clock()-starter;
 	outtime<<"边界点耗时："<<timer<<"ms\n";
 
-	if (!EffectPoly(vecImagePath))
-	{
-		return false;
-	}
+// 	if (!EffectPoly(vecImagePath))
+// 	{
+// 		return false;
+// 	}
 
 	//读取有效区域
 	std::vector<PolygonExt2> EffPolygons;
@@ -834,7 +835,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 							}
 						}
 						findy += yite;
-						if (findy < 0 || int(findy) >= buffer_width)
+						if (findy < 0 || int(findy) >= buffer_height)
 						{
 							break;
 						}
@@ -915,7 +916,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 						{
 							break;
 						}
-						if (findy < 0 || int(findy) >= buffer_width)
+						if (findy < 0 || int(findy) >= buffer_height)
 						{
 							break;
 						}
@@ -959,7 +960,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 								}
 							}
 							findy += yite;
-							if (findy < 0 || int(findy) >= buffer_width)
+							if (findy < 0 || int(findy) >= buffer_height)
 							{
 								break;
 							}
@@ -1040,7 +1041,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 							{
 								break;
 							}
-							if (findy < 0 || int(findy) >= buffer_width)
+							if (findy < 0 || int(findy) >= buffer_height)
 							{
 								break;
 							}
@@ -1086,7 +1087,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 								}
 							}
 							findy += yite;
-							if (findy < 0 || int(findy) >= buffer_width)
+							if (findy < 0 || int(findy) >= buffer_height)
 							{
 								break;
 							}
@@ -1167,7 +1168,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 							{
 								break;
 							}
-							if (findy < 0 || int(findy) >= buffer_width)
+							if (findy < 0 || int(findy) >= buffer_height)
 							{
 								break;
 							}
@@ -1213,7 +1214,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 								}
 							}
 							findy += yite;
-							if (findy < 0 || int(findy) >= buffer_width)
+							if (findy < 0 || int(findy) >= buffer_height)
 							{
 								break;
 							}
@@ -1294,7 +1295,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 							{
 								break;
 							}
-							if (findy < 0 || int(findy) >= buffer_width)
+							if (findy < 0 || int(findy) >= buffer_height)
 							{
 								break;
 							}
@@ -1848,6 +1849,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 	timer = clock()-starter;
 	outtime<<"其他操作耗时："<<timer<<"ms\n";
 
+	pImage->Close();
 
 	if (S_FALSE == pImage->Open(strTifPath.AllocSysString(), modeRead))
 	{
@@ -3047,6 +3049,7 @@ bool Dsm2Tif(CString strDsmPath)
 		else
 		{
 			infile.close();
+			return false;
 			infile.open(strDsmPath.GetBuffer(0), ios::in);
 			float Keyp[7];
 			infile>>Keyp[0];
@@ -3066,6 +3069,52 @@ bool Dsm2Tif(CString strDsmPath)
 			nXSize = (int)Keyp[5];
 			nYSize = (int)Keyp[6];
 		}
+
+		double* pHistogram = new double[65536];
+		memset(pHistogram, 0, sizeof(double)*65536);
+		float temp = 0;
+		double count = 0;
+
+		for (int y = 0; y < nYSize; ++y)
+		{
+			for (int x = 0; x < nXSize; ++x)
+			{
+				infile>>temp;
+				if (temp > 0)
+				{
+					++pHistogram[int(temp/lfZoom)];
+					++count;
+				}
+			}
+		}
+		
+		infile.close();
+
+		double lfLimit = 0.15, lfCount = 0;
+		int limit = 0;
+		for (int i = 1; i < 65536; ++i)
+		{
+			lfCount += pHistogram[i];
+			if (lfCount/count > lfLimit && lfCount/count < 0.5)
+			{
+				limit = i;
+				break;
+			}
+		}
+
+		infile.open(strDsmPath.GetBuffer(0), ios::in);
+		infile>>tmp;
+		infile>>tmp;
+		infile>>tmp;
+		infile>>tmp;
+		infile>>tmp;
+		infile>>lfXOrigin;
+		infile>>lfYOrigin;
+		infile>>lfXResolution;
+		infile>>lfYResolution;
+		infile>>nYSize;
+		infile>>nXSize;
+		infile>>lfZoom;
 		
 		lfXStart = lfXOrigin-lfXResolution/2;
 		lfYStart = lfYOrigin+lfYResolution/2-nYSize*lfYResolution;
@@ -3098,7 +3147,14 @@ bool Dsm2Tif(CString strDsmPath)
 						}
 						else
 						{
-							temBuf[n*nXSize+m] = (unsigned short)(fBuf[n*nXSize+m]/lfZoom);
+							if (fBuf[n*nXSize+m]/lfZoom < limit)
+							{
+								temBuf[n*nXSize+m] = 0;
+							}
+							else
+							{
+								temBuf[n*nXSize+m] = (unsigned short)(fBuf[n*nXSize+m]/lfZoom)*10;
+							}
 						}
 					}
 				}
@@ -3125,7 +3181,14 @@ bool Dsm2Tif(CString strDsmPath)
 						}
 						else
 						{
-							temBuf[n*nXSize+m] = (unsigned short)(fBuf[n*nXSize+m]/lfZoom);
+							if (fBuf[n*nXSize+m]/lfZoom < limit)
+							{
+								temBuf[n*nXSize+m] = 0;
+							}
+							else
+							{
+								temBuf[n*nXSize+m] = (unsigned short)(fBuf[n*nXSize+m]/lfZoom)*10;
+							}
 						}
 					}
 				}
@@ -3337,7 +3400,300 @@ int PtInRegionZXEx(double x, double y, double *pX, double *pY, int nSum, double 
 	return 1==ret%2? 1:-1;
 }
 
+bool MovePoints(CString strAllDomPath, CString strRrlxPath)
+{
+	CString path;
+	CString strExt;
+	std::vector<CString> vecImagePath;
 
+	while (1)
+	{
+		int index = strAllDomPath.ReverseFind(';');
+		if (index == -1)
+		{
+			vecImagePath.push_back(strAllDomPath);
+			break;
+		}
+		else
+		{
+			vecImagePath.push_back(strAllDomPath.Right(strAllDomPath.GetLength()-index-1));
+			strAllDomPath = strAllDomPath.Left(index);
+		}
+	}
+
+	auto path_ite = vecImagePath.begin();
+	std::fstream infile;
+	std::vector<PolygonExt2> polygons;
+
+	while (path_ite != vecImagePath.end())
+	{
+		CString image_path = *path_ite;
+		path = image_path.Left(image_path.ReverseFind('\\')+1);
+		strExt = image_path.Right(image_path.GetLength()-image_path.ReverseFind('.'));
+		CString index_name = image_path.Right(image_path.GetLength()-image_path.ReverseFind('\\')-1);
+		index_name = index_name.Left(index_name.ReverseFind('.'));
+		CString rrlx_path = strRrlxPath+index_name+_T(".rrlx");
+		infile.open(rrlx_path.GetBuffer(0), std::ios::in);
+
+		int point_count = 0;
+		infile>>point_count;
+
+		double* px = new double[point_count];
+		memset(px, 0, sizeof(double)*point_count);
+		double* py = new double[point_count];
+		memset(py, 0, sizeof(double)*point_count);
+
+		int temp = 0;
+		for (int i = 0; i < point_count; ++i)
+		{
+			infile>>px[i]>>py[i]>>temp;
+		}
+
+		polygons.push_back(PolygonExt2(point_count, px, py, index_name));
+
+		infile.close();
+		++path_ite;
+	}
+
+	auto polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int num = polygon_ite->point_count_;
+
+		for (auto polygon_ite2 = polygons.begin();
+			polygon_ite2 < polygons.end();
+			++polygon_ite2)
+		{
+			if (polygon_ite2 != polygon_ite)
+			{
+				double* px2 = polygon_ite2->px_;
+				double* py2 = polygon_ite2->py_;
+				int num2 = polygon_ite2->point_count_;
+				for (int n = 0; n < num; ++n)
+				{
+					for (int m = 0; m < num2; ++m)
+					{
+						if (fabs(px[n]-px2[m]) < 0.000001 && fabs(py[n] - py2[m]) < 0.000001)
+						{
+							polygon_ite->np_[n].index_name_n_[polygon_ite->np_[n].shared_by_-1] = polygon_ite2->index_name_;
+							++(polygon_ite->np_[n].shared_by_);
+						}
+					}
+				}
+			}
+		}
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int point_count = polygon_ite->point_count_;
+
+		for (int i = 0; i < point_count; ++i)
+		{
+			if (polygon_ite->np_[i].shared_by_ == 1)
+			{
+				polygon_ite->np_[i].is_edge_ = true;
+			}
+			else
+			{
+				vector<double> vecx_temp;
+				vector<double> vecy_temp;
+				vecx_temp.push_back(px[(i-1+point_count)%point_count]);
+				vecy_temp.push_back(py[(i-1+point_count)%point_count]);
+				vecx_temp.push_back(px[(i+1)%point_count]);
+				vecy_temp.push_back(py[(i+1)%point_count]);
+				for (int n = 0; n < polygon_ite->np_[i].shared_by_-1; ++n)
+				{
+					auto ite = std::find(polygons.begin(), polygons.end(),
+						PolygonExt2(0, NULL, NULL, polygon_ite->np_[i].index_name_n_[n]));
+					int the_index = 0;
+					for (int j = 0; j < ite->point_count_; ++j)
+					{
+						if (fabs(px[i]-ite->px_[j]) < 1e-5 &&
+							fabs(py[i]-ite->py_[j]) < 1e-5)
+						{
+							the_index = j;
+							break;
+						}
+					}
+
+					bool is_include = false;
+					for (unsigned int j = 0; j < vecx_temp.size(); ++j)
+					{
+						if (fabs(ite->px_[(the_index-1+ite->point_count_)%ite->point_count_]-vecx_temp[j]) < 1e-5 &&
+							fabs(ite->py_[(the_index-1+ite->point_count_)%ite->point_count_]-vecy_temp[j]) < 1e-5)
+						{
+							is_include = true;
+							break;
+						}
+					}
+					if (!is_include)
+					{
+						vecx_temp.push_back(ite->px_[(the_index-1+ite->point_count_)%ite->point_count_]);
+						vecy_temp.push_back(ite->py_[(the_index-1+ite->point_count_)%ite->point_count_]);
+					}
+
+					is_include = false;
+					for (unsigned int j = 0; j < vecx_temp.size(); ++j)
+					{
+						if (fabs(ite->px_[(the_index+1)%ite->point_count_]-vecx_temp[j]) < 1e-5 &&
+							fabs(ite->py_[(the_index+1)%ite->point_count_]-vecy_temp[j]) < 1e-5)
+						{
+							is_include = true;
+							break;
+						}
+					}
+					if (!is_include)
+					{
+						vecx_temp.push_back(ite->px_[(the_index+1)%ite->point_count_]);
+						vecy_temp.push_back(ite->py_[(the_index+1)%ite->point_count_]);
+					}
+				}
+				if (vecx_temp.size() > polygon_ite->np_[i].shared_by_)
+				{
+					polygon_ite->np_[i].is_edge_ = true;
+				}
+				vecx_temp.clear();
+				vecy_temp.clear();
+			}
+		}
+		++polygon_ite;
+	}
+
+	IImageX* tempImage = NULL;
+	CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&tempImage);
+
+	double lfCellSize = 0, lfXOrigin = 0, lfYOrigin = 0;
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int num = polygon_ite->point_count_;
+
+		CString image_path = path+polygon_ite->index_name_+strExt;
+		if (S_FALSE == tempImage->Open(image_path.AllocSysString(), modeRead))
+		{
+			tempImage->Close();
+			tempImage->Release();
+			return false;
+		}
+
+		tempImage->GetGrdInfo(&lfXOrigin, &lfYOrigin, &lfCellSize);
+		tempImage->Close();
+
+		const int TILESIZE = 128;
+
+		for (int i = 0; i < num; ++i)
+		{
+			if (polygon_ite->np_[i].shared_by_ == 2 && !polygon_ite->np_[i].is_edge_)
+			{
+				if (((fabs(px[i]-px[(i-1+num)%num]) < 1e-5 /*&& fabs(fabs(py[i]-py[(i-1+num)%num])-TILESIZE*lfCellSize) < 1e-5*/) ||
+					(fabs(py[i]-py[(i-1+num)%num]) < 1e-5 /*&& fabs(fabs(px[i]-px[(i-1+num)%num])-TILESIZE*lfCellSize) < 1e-5*/)) &&
+					((fabs(px[i]-px[(i+1)%num]) < 1e-5 /*&& fabs(fabs(py[i]-py[(i+1)%num])-TILESIZE*lfCellSize) < 1e-5*/) ||
+					(fabs(py[i]-py[(i+1)%num]) < 1e-5 /*&& fabs(fabs(px[i]-px[(i+1)%num])-TILESIZE*lfCellSize) < 1e-5*/)))
+				{
+					polygon_ite->np_[i].should_move_ = true;
+				}
+			}
+// 			if (fabs(fabs(px[i]-px[(i-1+num)%num])+fabs(py[i]-py[(i-1+num)%num])
+// 				-TILESIZE*lfCellSize) < 1e-5 &&
+// 				fabs(fabs(px[i]-px[(i+1)%num])+fabs(py[i]-py[(i+1)%num])
+// 				-TILESIZE*lfCellSize) < 1e-5)
+// 			{
+// 				polygon_ite->np_[i].should_move_ = true;
+// 			}
+		}
+
+		++polygon_ite;
+	}
+
+	tempImage->Release();
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		auto ite = polygon_ite->np_.begin();
+		int index1 = 0;
+		while (ite != polygon_ite->np_.end())
+		{
+			if (ite->shared_by_ == 2)
+			{
+				auto temp_ite = std::find(polygons.begin(), polygons.end(),
+					PolygonExt2(0, NULL, NULL, ite->index_name_n_[0]));
+				for (int index2 = 0; index2 < temp_ite->point_count_; ++index2)
+				{
+					if (fabs(polygon_ite->px_[index1]-temp_ite->px_[index2]) < 1e-5 &&
+						fabs(polygon_ite->py_[index1]-temp_ite->py_[index2]) < 1e-5)
+					{
+						if (temp_ite->np_[index2].should_move_)
+						{
+							ite->should_move_ = true;
+						}
+						break;
+					}
+				}
+			}
+			++index1;
+			++ite;
+		}
+
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		double* px = polygon_ite->px_;
+		double* py = polygon_ite->py_;
+		int num = polygon_ite->point_count_;
+
+		for (int i = 0; i < num; ++i)
+		{
+			double oldx = px[i];
+			double oldy = py[i];
+
+			if (polygon_ite->np_[i].should_move_)
+			{
+				double newx = ((px[(i-1+num)%num]+px[(i+1)%num])/2-oldx)/4+oldx;
+				double newy = ((py[(i-1+num)%num]+py[(i+1)%num])/2-oldy)/4+oldy;
+
+				auto poly = polygons.begin();
+				while (poly != polygons.end())
+				{
+					poly->ResetPoint("", oldx, oldy, newx, newy);
+					++poly;
+				}
+			}
+		}
+		++polygon_ite;
+	}
+
+	vecImagePath.clear();
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		polygon_ite->Output(strRrlxPath.GetBuffer(0));
+		++polygon_ite;
+	}
+
+	polygon_ite = polygons.begin();
+	while (polygon_ite != polygons.end())
+	{
+		polygon_ite->Free();
+		++polygon_ite;
+	}
+
+	return true;
+}
 
 
 

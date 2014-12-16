@@ -3593,7 +3593,7 @@ bool MovePoints(CString strAllDomPath, CString strRrlxPath)
 
 		for (int i = 0; i < num; ++i)
 		{
-			if (polygon_ite->np_[i].shared_by_ == 2 && !polygon_ite->np_[i].is_edge_)
+			if (polygon_ite->np_[i].shared_by_ >= 2 && !polygon_ite->np_[i].is_edge_)
 			{
 				if (((fabs(px[i]-px[(i-1+num)%num]) < 1e-5 /*&& fabs(fabs(py[i]-py[(i-1+num)%num])-TILESIZE*lfCellSize) < 1e-5*/) ||
 					(fabs(py[i]-py[(i-1+num)%num]) < 1e-5 /*&& fabs(fabs(px[i]-px[(i-1+num)%num])-TILESIZE*lfCellSize) < 1e-5*/)) &&
@@ -3624,7 +3624,7 @@ bool MovePoints(CString strAllDomPath, CString strRrlxPath)
 		int index1 = 0;
 		while (ite != polygon_ite->np_.end())
 		{
-			if (ite->shared_by_ == 2)
+			if (ite->shared_by_ >= 2 && !ite->is_edge_)
 			{
 				auto temp_ite = std::find(polygons.begin(), polygons.end(),
 					PolygonExt2(0, NULL, NULL, ite->index_name_n_[0]));
@@ -3662,8 +3662,8 @@ bool MovePoints(CString strAllDomPath, CString strRrlxPath)
 
 			if (polygon_ite->np_[i].should_move_)
 			{
-				double newx = ((px[(i-1+num)%num]+px[(i+1)%num])/2-oldx)/4+oldx;
-				double newy = ((py[(i-1+num)%num]+py[(i+1)%num])/2-oldy)/4+oldy;
+				double newx = ((px[(i-1+num)%num]+px[(i+1)%num])/2-oldx)/2.5+oldx;
+				double newy = ((py[(i-1+num)%num]+py[(i+1)%num])/2-oldy)/2.5+oldy;
 
 				auto poly = polygons.begin();
 				while (poly != polygons.end())

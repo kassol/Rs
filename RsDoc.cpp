@@ -1556,7 +1556,7 @@ void CRsDoc::OnOptimize()
 		++path_ite;
 	}
 	strAllDomPath = strAllDomPath.Left(strAllDomPath.GetLength()-1);
-	Optimize(strAllDomPath, "D:\\data\\resample\\房屋.dxf"/*"D:\\ass.dxf"*//*"D:\\dlg.dxf"*//*"D:\\boxin_dsm.dem"*//*"D:\\error3\\zh1.dem"*/, "D:\\output\\");
+	Optimize(strAllDomPath, /*"D:\\data\\resample\\房屋.dxf"*//*"D:\\ass.dxf"*//*"D:\\dlg.dxf"*//*"D:\\boxin_dsm.dem"*/"D:\\error2\\Poland\\Poland.dem", "D:\\output\\");
 
 	ParsePolygon();
 	UpdateAllViews(NULL);
@@ -2214,7 +2214,7 @@ void CRsDoc::OnOptimize()
 				}
 				bool isFind = false;
 				int ncount = 0;
-				const int count_limit = 8;
+				const int count_limit = 10;
 
 				//往公共区域中心移点
 				int xoff = 0, yoff = 0;

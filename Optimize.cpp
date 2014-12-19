@@ -19,7 +19,7 @@ double CalDistance(double x1, double y1, double x2, double y2)
 
 bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 {
-	return MovePoints(strAllDomPath, strRrlxPath);
+	//return MovePoints(strAllDomPath, strRrlxPath);
 	clock_t starter = clock();
 	fstream outtime;
 	outtime.open("C:\\time.txt", ios::out);
@@ -252,10 +252,11 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		return false;
 	}
 	CString strTifPath = strDsmPath.Left(strDsmPath.ReverseFind('.'));
+	CString strTifMovePath = strTifPath+_T("_move.tif");
 	strTifPath += _T(".tif");
 
 	//根据dsm移三四度点
-	if (S_FALSE == pImage->Open(strTifPath.AllocSysString(), modeRead))
+	if (S_FALSE == pImage->Open(strTifMovePath.AllocSysString(), modeRead))
 	{
 		pImage->Release();
 		return false;
@@ -734,7 +735,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 				}
 				bool isFind = false;
 				int ncount = 0;
-				const int count_limit = 7;
+				const int count_limit = 10;
 
 				//往公共区域中心移点
 				int xoff = 0, yoff = 0;
@@ -1317,6 +1318,14 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		++polygon_ite;
 	}//移点结束
 
+// 	polygon_ite = polygons.begin();
+// 	while (polygon_ite != polygons.end())
+// 	{
+// 		polygon_ite->Output(strRrlxPath);
+// 		++polygon_ite;
+// 	}
+// 	return true;
+
 	//删点
 	polygon_ite = polygons.begin();
 	while (polygon_ite != polygons.end())
@@ -1887,6 +1896,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 		tempImage->Release();
 		return false;
 	}
+	//shortpath->SetGuassFilter(5, 3, 1);
 
 #define NEXT(a) ((a+1==polygon_ite->np_.end()) ? (polygon_ite->np_.begin()) : (a+1))
 
@@ -2876,7 +2886,7 @@ bool Dxf2Dsm(CString strDxf, double tmp_cellsize)
 			m_dxffile.Destroy();
 	
 			
-			double cellsize = tmp_cellsize*20;
+			double cellsize = tmp_cellsize*10;
 	
 			double lfXOrigin = int(lfMinx/cellsize)*cellsize;
 			double lfYOrigin = int(lfMiny/cellsize)*cellsize;
@@ -3003,13 +3013,21 @@ bool Dxf2Dsm(CString strDxf, double tmp_cellsize)
 bool Dsm2Tif(CString strDsmPath)
 {
 	CString strTifPath = strDsmPath.Left(strDsmPath.ReverseFind('.'));
+	CString strTifMovePath = strTifPath+_T("_move.tif");
 	strTifPath += _T(".tif");
-	if (_access(strTifPath.GetBuffer(0), 0) == -1)
+	if (_access(strTifPath.GetBuffer(0), 0) == -1 || _access(strTifMovePath.GetBuffer(0), 0) == -1)
 	{
 		IImageX* pImage = NULL;
+		IImageX* pImage2 = NULL;
 		HRESULT hr = CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&pImage);
 		if (FAILED(hr))
 		{
+			return false;
+		}
+		hr = CoCreateInstance(CLSID_ImageDriverX, NULL, CLSCTX_ALL, IID_IImageX, (void**)&pImage2);
+		if (FAILED(hr))
+		{
+			pImage->Release();
 			return false;
 		}
 		
@@ -3080,7 +3098,7 @@ bool Dsm2Tif(CString strDsmPath)
 			for (int x = 0; x < nXSize; ++x)
 			{
 				infile>>temp;
-				if (temp > 0)
+				if (temp > 0 && temp/lfZoom < 65536)
 				{
 					++pHistogram[int(temp/lfZoom)];
 					++count;
@@ -3090,14 +3108,22 @@ bool Dsm2Tif(CString strDsmPath)
 		
 		infile.close();
 
-		double lfLimit = 0.15, lfCount = 0;
-		int limit = 0;
-		for (int i = 1; i < 65536; ++i)
+		int min = 0, max = 0;
+
+		for (int i = 0; i < 65536; ++i)
 		{
-			lfCount += pHistogram[i];
-			if (lfCount/count > lfLimit && lfCount/count < 0.5)
+			if (pHistogram[i] != 0)
 			{
-				limit = i;
+				min = i;
+				break;
+			}
+		}
+
+		for (int i = 65535; i >= 0; --i)
+		{
+			if (pHistogram[i] != 0)
+			{
+				max = i;
 				break;
 			}
 		}
@@ -3119,11 +3145,15 @@ bool Dsm2Tif(CString strDsmPath)
 		lfXStart = lfXOrigin-lfXResolution/2;
 		lfYStart = lfYOrigin+lfYResolution/2-nYSize*lfYResolution;
 		
-		pImage->CreateImg(strTifPath.AllocSysString(), modeCreate, nXSize, nYSize, 
+		pImage->CreateImg(strTifMovePath.AllocSysString(), modeCreate, nXSize, nYSize, 
+			Pixel_Int16, 1, BIP, lfXStart, lfYStart, lfXResolution);
+		pImage2->CreateImg(strTifPath.AllocSysString(), modeCreate, nXSize, nYSize, 
 			Pixel_Int16, 1, BIP, lfXStart, lfYStart, lfXResolution);
 		
 		unsigned short* temBuf = new unsigned short[nXSize*nBlockSize];
 		memset(temBuf, 0, sizeof(unsigned short)*nXSize*nBlockSize);
+		unsigned short* temBuf2 = new unsigned short[nXSize*nBlockSize];
+		memset(temBuf2, 0, sizeof(unsigned short)*nXSize*nBlockSize);
 		float* fBuf = new float[nXSize*nBlockSize];
 		memset(fBuf, 0, sizeof(float)*nXSize*nBlockSize);
 		for (int y = 0; y < nYSize;)
@@ -3144,21 +3174,25 @@ bool Dsm2Tif(CString strDsmPath)
 						if (fBuf[n*nXSize+m] < 0)
 						{
 							temBuf[n*nXSize+m] = 65535;
+							temBuf2[n*nXSize+m] = 65535;
 						}
 						else
 						{
-							if (fBuf[n*nXSize+m]/lfZoom < limit)
-							{
-								temBuf[n*nXSize+m] = 0;
-							}
-							else
-							{
-								temBuf[n*nXSize+m] = (unsigned short)(fBuf[n*nXSize+m]/lfZoom)*10;
-							}
+ 							if (fBuf[n*nXSize+m]/lfZoom < min+(max-min)/2)
+ 							{
+ 								temBuf[n*nXSize+m] = 0;
+ 							}
+ 							else
+ 							{
+ 								temBuf[n*nXSize+m] = 100;
+ 							}
+							temBuf2[n*nXSize+m] = (unsigned short)(fBuf[n*nXSize+m]/lfZoom)*5;
 						}
 					}
 				}
 				pImage->WriteImg(0, nYSize-y-nBlockSize, nXSize, nYSize-y, (unsigned char*)temBuf, nXSize, nBlockSize,
+					1, 0, 0, nXSize, nBlockSize, -1, 0);
+				pImage2->WriteImg(0, nYSize-y-nBlockSize, nXSize, nYSize-y, (unsigned char*)temBuf2, nXSize, nBlockSize,
 					1, 0, 0, nXSize, nBlockSize, -1, 0);
 				y += nBlockSize;
 			}
@@ -3178,31 +3212,39 @@ bool Dsm2Tif(CString strDsmPath)
 						if (fBuf[n*nXSize+m] < 0)
 						{
 							temBuf[n*nXSize+m] = 65535;
+							temBuf2[n*nXSize+m] = 65535;
 						}
 						else
 						{
-							if (fBuf[n*nXSize+m]/lfZoom < limit)
-							{
-								temBuf[n*nXSize+m] = 0;
-							}
-							else
-							{
-								temBuf[n*nXSize+m] = (unsigned short)(fBuf[n*nXSize+m]/lfZoom)*10;
-							}
+ 							if (fBuf[n*nXSize+m]/lfZoom < min+(max-min)/2)
+ 							{
+ 								temBuf[n*nXSize+m] = 0;
+ 							}
+ 							else
+ 							{
+ 								temBuf[n*nXSize+m] = 100;
+ 							}
+							temBuf2[n*nXSize+m] = (unsigned short)(fBuf[n*nXSize+m]/lfZoom)*5;
 						}
 					}
 				}
 				pImage->WriteImg(0, 0, nXSize, nYSize-y, (unsigned char*)temBuf, nXSize, nBlockSize, 1,
+					0, 0, nXSize, nYSize-y, -1, 0);
+				pImage2->WriteImg(0, 0, nXSize, nYSize-y, (unsigned char*)temBuf2, nXSize, nBlockSize, 1,
 					0, 0, nXSize, nYSize-y, -1, 0);
 				y = nYSize;
 			}
 		}
 		pImage->Close();
 		pImage->Release();
+		pImage2->Close();
+		pImage2->Release();
 		delete []fBuf;
 		fBuf = NULL;
 		delete []temBuf;
 		temBuf = NULL;
+		delete []temBuf2;
+		temBuf2 = NULL;
 	}
 	return true;
 }

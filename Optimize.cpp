@@ -735,7 +735,7 @@ bool Optimize(CString strAllDomPath, CString strDxfPath, CString strRrlxPath)
 				}
 				bool isFind = false;
 				int ncount = 0;
-				const int count_limit = 10;
+				const int count_limit = 7;
 
 				//往公共区域中心移点
 				int xoff = 0, yoff = 0;
@@ -3067,25 +3067,9 @@ bool Dsm2Tif(CString strDsmPath)
 		else
 		{
 			infile.close();
+			pImage->Release();
+			pImage2->Release();
 			return false;
-			infile.open(strDsmPath.GetBuffer(0), ios::in);
-			float Keyp[7];
-			infile>>Keyp[0];
-			infile>>Keyp[1];
-			infile>>Keyp[2];
-			infile>>Keyp[3];
-			infile>>Keyp[4];
-			infile>>Keyp[5];
-			infile>>Keyp[6];
-	
-			lfXOrigin = Keyp[0];
-			lfYOrigin = Keyp[1];
-	
-			lfXResolution = Keyp[3];
-			lfYResolution = Keyp[4];
-	
-			nXSize = (int)Keyp[5];
-			nYSize = (int)Keyp[6];
 		}
 
 		double* pHistogram = new double[65536];

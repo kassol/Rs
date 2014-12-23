@@ -1556,7 +1556,7 @@ void CRsDoc::OnOptimize()
 		++path_ite;
 	}
 	strAllDomPath = strAllDomPath.Left(strAllDomPath.GetLength()-1);
-	Optimize(strAllDomPath, /*"D:\\data\\resample\\·¿ÎÝ.dxf"*//*"D:\\ass.dxf"*//*"D:\\dlg.dxf"*//*"D:\\boxin_dsm.dem"*/"D:\\error2\\Poland\\Poland.dem", "D:\\output\\");
+	Optimize(strAllDomPath, /*"D:\\data\\resample\\·¿ÎÝ.dxf"*//*"D:\\ass.dxf"*//*"D:\\dlg.dxf"*//*"D:\\ttttt\\boxin\\boxin_dsm.dem"*/"D:\\error2\\Poland\\Poland.dem"/*"D:\\error3\\zh1.dem"*/, "D:\\output\\");
 
 	ParsePolygon();
 	UpdateAllViews(NULL);

@@ -3069,62 +3069,10 @@ bool Dsm2Tif(CString strDsmPath)
 			infile.close();
 			pImage->Release();
 			pImage2->Release();
+			pImage = NULL;
+			pImage2 = NULL;
 			return false;
 		}
-
-		double* pHistogram = new double[65536];
-		memset(pHistogram, 0, sizeof(double)*65536);
-		float temp = 0;
-		double count = 0;
-
-		for (int y = 0; y < nYSize; ++y)
-		{
-			for (int x = 0; x < nXSize; ++x)
-			{
-				infile>>temp;
-				if (temp > 0 && temp/lfZoom < 65536)
-				{
-					++pHistogram[int(temp/lfZoom)];
-					++count;
-				}
-			}
-		}
-		
-		infile.close();
-
-		int min = 0, max = 0;
-
-		for (int i = 0; i < 65536; ++i)
-		{
-			if (pHistogram[i] != 0)
-			{
-				min = i;
-				break;
-			}
-		}
-
-		for (int i = 65535; i >= 0; --i)
-		{
-			if (pHistogram[i] != 0)
-			{
-				max = i;
-				break;
-			}
-		}
-
-		infile.open(strDsmPath.GetBuffer(0), ios::in);
-		infile>>tmp;
-		infile>>tmp;
-		infile>>tmp;
-		infile>>tmp;
-		infile>>tmp;
-		infile>>lfXOrigin;
-		infile>>lfYOrigin;
-		infile>>lfXResolution;
-		infile>>lfYResolution;
-		infile>>nYSize;
-		infile>>nXSize;
-		infile>>lfZoom;
 		
 		lfXStart = lfXOrigin-lfXResolution/2;
 		lfYStart = lfYOrigin+lfYResolution/2-nYSize*lfYResolution;
@@ -3157,25 +3105,14 @@ bool Dsm2Tif(CString strDsmPath)
 					{
 						if (fBuf[n*nXSize+m] < 0)
 						{
-							temBuf[n*nXSize+m] = 65535;
 							temBuf2[n*nXSize+m] = 65535;
 						}
 						else
 						{
- 							if (fBuf[n*nXSize+m]/lfZoom < min+(max-min)/2)
- 							{
- 								temBuf[n*nXSize+m] = 0;
- 							}
- 							else
- 							{
- 								temBuf[n*nXSize+m] = 100;
- 							}
 							temBuf2[n*nXSize+m] = (unsigned short)(fBuf[n*nXSize+m]/lfZoom)*5;
 						}
 					}
 				}
-				pImage->WriteImg(0, nYSize-y-nBlockSize, nXSize, nYSize-y, (unsigned char*)temBuf, nXSize, nBlockSize,
-					1, 0, 0, nXSize, nBlockSize, -1, 0);
 				pImage2->WriteImg(0, nYSize-y-nBlockSize, nXSize, nYSize-y, (unsigned char*)temBuf2, nXSize, nBlockSize,
 					1, 0, 0, nXSize, nBlockSize, -1, 0);
 				y += nBlockSize;
@@ -3195,40 +3132,103 @@ bool Dsm2Tif(CString strDsmPath)
 					{
 						if (fBuf[n*nXSize+m] < 0)
 						{
-							temBuf[n*nXSize+m] = 65535;
 							temBuf2[n*nXSize+m] = 65535;
 						}
 						else
 						{
- 							if (fBuf[n*nXSize+m]/lfZoom < min+(max-min)/2)
- 							{
- 								temBuf[n*nXSize+m] = 0;
- 							}
- 							else
- 							{
- 								temBuf[n*nXSize+m] = 100;
- 							}
 							temBuf2[n*nXSize+m] = (unsigned short)(fBuf[n*nXSize+m]/lfZoom)*5;
 						}
 					}
 				}
-				pImage->WriteImg(0, 0, nXSize, nYSize-y, (unsigned char*)temBuf, nXSize, nBlockSize, 1,
-					0, 0, nXSize, nYSize-y, -1, 0);
 				pImage2->WriteImg(0, 0, nXSize, nYSize-y, (unsigned char*)temBuf2, nXSize, nBlockSize, 1,
 					0, 0, nXSize, nYSize-y, -1, 0);
 				y = nYSize;
 			}
 		}
-		pImage->Close();
-		pImage->Release();
-		pImage2->Close();
-		pImage2->Release();
+
+		infile.close();
+
 		delete []fBuf;
 		fBuf = NULL;
 		delete []temBuf;
 		temBuf = NULL;
 		delete []temBuf2;
 		temBuf2 = NULL;
+
+		int INTERVAL = 50/lfXResolution;
+		if (INTERVAL == 0)
+		{
+			INTERVAL = 50;
+		}
+		int col = nXSize/INTERVAL+1;
+		int row = nYSize/INTERVAL+1;
+
+		for (int no_row = 0; no_row < row; ++no_row)
+		{
+			for (int no_col = 0; no_col< col; ++no_col)
+			{
+#define BLOCKHEIGHT min(INTERVAL, nYSize-no_row*INTERVAL)
+#define BLOCKWIDTH min(INTERVAL, nXSize-no_col*INTERVAL)
+				temBuf = new unsigned short[BLOCKWIDTH*BLOCKHEIGHT];
+				memset(temBuf, 0, sizeof(unsigned short)*BLOCKWIDTH*BLOCKHEIGHT);
+				temBuf2 = new unsigned short[BLOCKWIDTH*BLOCKHEIGHT];
+				memset(temBuf2, 0, sizeof(unsigned short)*BLOCKWIDTH*BLOCKHEIGHT);
+				pImage2->ReadImg(no_col*INTERVAL, no_row*INTERVAL,
+					no_col*INTERVAL+BLOCKWIDTH, no_row*INTERVAL+BLOCKHEIGHT,
+					(unsigned char*)temBuf2, BLOCKWIDTH, BLOCKHEIGHT,
+					1, 0, 0, BLOCKWIDTH, BLOCKHEIGHT, -1, 0);
+				int minVal = 99999;
+				for (int j = 0; j < BLOCKHEIGHT; ++j)
+				{
+					for (int i = 0; i < BLOCKWIDTH; ++i)
+					{
+						if (temBuf2[j*BLOCKWIDTH+i] != 65535 &&
+							temBuf2[j*BLOCKWIDTH+i] < minVal)
+						{
+							minVal = temBuf2[j*BLOCKWIDTH+i];
+						}
+					}
+				}
+
+				for (int j = 0; j < BLOCKHEIGHT; ++j)
+				{
+					for (int i = 0; i < BLOCKWIDTH; ++i)
+					{
+						if (temBuf2[j*BLOCKWIDTH+i] != 65535)
+						{
+							if (temBuf2[j*BLOCKWIDTH+i]-minVal >= 30)
+							{
+								temBuf[j*BLOCKWIDTH+i] = 100;
+							}
+							else
+							{
+								temBuf[j*BLOCKWIDTH+i] = 0;
+							}
+						}
+						else
+						{
+							temBuf[j*BLOCKWIDTH+i] = 65535;
+						}
+					}
+				}
+				pImage->WriteImg(no_col*INTERVAL, no_row*INTERVAL,
+					no_col*INTERVAL+BLOCKWIDTH, no_row*INTERVAL+BLOCKHEIGHT,
+					(unsigned char*)temBuf, BLOCKWIDTH, BLOCKHEIGHT,
+					1, 0, 0, BLOCKWIDTH, BLOCKHEIGHT, -1, 0);
+
+				delete []temBuf;
+				delete []temBuf2;
+				temBuf = NULL;
+				temBuf2 = NULL;
+			}
+		}
+
+		pImage->Close();
+		pImage->Release();
+		pImage2->Close();
+		pImage2->Release();
+		pImage = NULL;
+		pImage2 = NULL;
 	}
 	return true;
 }

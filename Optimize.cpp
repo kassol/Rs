@@ -3688,9 +3688,18 @@ bool MovePoints(CString strAllDomPath, CString strRrlxPath)
 
 			if (polygon_ite->np_[i].should_move_)
 			{
-				double newx = ((px[(i-1+num)%num]+px[(i+1)%num])/2-oldx)/2.5+oldx;
-				double newy = ((py[(i-1+num)%num]+py[(i+1)%num])/2-oldy)/2.5+oldy;
-
+				double newx = 0, newy = 0;
+				if (polygon_ite->np_[i].shared_by_ > 2)
+				{
+					newx = ((px[(i-1+num)%num]+px[(i+1)%num])/2-oldx)/8+oldx;
+					newy = ((py[(i-1+num)%num]+py[(i+1)%num])/2-oldy)/8+oldy;
+				}
+				else
+				{
+					newx = ((px[(i-1+num)%num]+px[(i+1)%num])/2-oldx)/2.5+oldx;
+					newy = ((py[(i-1+num)%num]+py[(i+1)%num])/2-oldy)/2.5+oldy;
+				}
+				
 				auto poly = polygons.begin();
 				while (poly != polygons.end())
 				{
